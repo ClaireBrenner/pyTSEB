@@ -61,7 +61,7 @@ c_d=0.2
 # Relative turbulence intensity (Goudriaan 1977)
 i_w=0.5
 
-import meteoUtils as met
+import src.meteoUtils as met
 
 def CalcL (ustar, Ta_K, rho, c_p, H, LE):
     '''Calculates the Monin-Obukhov length.

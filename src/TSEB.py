@@ -63,11 +63,11 @@ Ancillary functions
 * :func:`CalcT_S_Series`. Soil temperature from soil sensible heat flux and resistance in series.
 '''
 
-import meteoUtils as met
-import resistances as res
-import MOsimilarity as MO
-import netRadiation as rad
-import ClumpingIndex as CI
+import src.meteoUtils as met
+import src.resistances as res
+import src.MOsimilarity as MO
+import src.netRadiation as rad
+import src.ClumpingIndex as CI
 import numpy as np
 #==============================================================================
 # List of constants used in TSEB model and sub-routines   
@@ -79,7 +79,7 @@ u_thres=0.00001
 # mimimun allowed friction velocity    
 u_friction_min=0.01;
 #Maximum number of interations
-ITERATIONS=100
+ITERATIONS=15
 # kB coefficient
 kB=0.0
 
@@ -139,12 +139,12 @@ def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
                 leaf bihemispherical reflectance in the optical infrared (700-2500nm),
             tau_leaf_nir : float
                 leaf bihemispherical transmittance in the optical  infrared (700-2500nm).
-    spectraGrd : dict('rho rsoilv', 'rsoiln')
+    spectraGrd : dict('rho rsoilvis', 'rsoilnir')
         Soil spectrum dictonary.
         
-            rsoilv : float
+            rsoilvis : float
                 soil bihemispherical reflectance in the visible (400-700 nm).
-            rsoiln : float
+            rsoilnir : float
                 soil bihemispherical reflectance in the optical infrared (700-2500nm).
     z_0M : float
         Aerodynamic surface roughness length for momentum transfer (m).
@@ -238,7 +238,7 @@ def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     if np.any(i):
         z_0M[i]=z0_soil
         d_0[i]=5*z_0M[i]
-        spectraGrdOSEB=fvis*spectraGrd['rsoilv']+fnir* spectraGrd['rsoiln']
+        spectraGrdOSEB=fvis*spectraGrd['rsoilvis']+fnir* spectraGrd['rsoilnir']
         [flag[i], S_nS[i], L_nS[i], LE_s[i], H_s[i], G[i], R_a[i], u_friction[i], L[i], counter[i]]=OSEB(Ts[i],
             Ta_K[i], u[i], ea[i], p[i], Sdn_dir[i]+Sdn_dif[i], Lsky[i], emisGrd, spectraGrdOSEB[i], 
             z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], CalcG[1][i]])
@@ -260,7 +260,7 @@ def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     S_nC[i], S_nS[i] = rad.CalcSnCampbell (LAI, sza[i], Sdn_dir[i], Sdn_dif[i], fvis[i],
                  fnir[i], spectraVeg['rho_leaf_vis'], spectraVeg['tau_leaf_vis'],
                 spectraVeg['rho_leaf_nir'], spectraVeg['tau_leaf_nir'], 
-                spectraGrd['rsoilv'], spectraGrd['rsoiln'], LAI_eff = LAI_eff[i])     
+                spectraGrd['rsoilvis'], spectraGrd['rsoilnir'], LAI_eff = LAI_eff[i])     
                 
     # And the net longwave radiation
     L_nC[i], L_nS[i] = rad.CalcLnKustas(Tc[i], Ts[i], Lsky[i], LAI[i], emisVeg, emisGrd)
@@ -421,12 +421,12 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
                 leaf bihemispherical reflectance in the optical infrared (700-2500nm),
             tau_leaf_nir : float
                 leaf bihemispherical transmittance in the optical  infrared (700-2500nm).
-    spectraGrd : dict('rho rsoilv', 'rsoiln')
+    spectraGrd : dict('rho rsoilvis', 'rsoilnir')
         Soil spectrum dictonary.
         
-            rsoilv : float
+            rsoilvis : float
                 soil bihemispherical reflectance in the visible (400-700 nm).
-            rsoiln : float
+            rsoilnir : float
                 soil bihemispherical reflectance in the optical infrared (700-2500nm).
     z_0M : float
         Aerodynamic surface roughness length for momentum transfer (m).
@@ -526,7 +526,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     if np.any(i):
         z_0M[i]=z0_soil
         d_0[i]=5*z_0M[i]
-        spectraGrdOSEB=fvis*spectraGrd['rsoilv']+fnir* spectraGrd['rsoiln']
+        spectraGrdOSEB=fvis*spectraGrd['rsoilvis']+fnir* spectraGrd['rsoilnir']
         [flag[i], S_nS[i], L_nS[i], LE_S[i], H_S[i], G[i], R_a[i], u_friction[i], L[i], n_iterations[i]]=OSEB(Tr_K[i],
             Ta_K[i], u[i], ea[i], p[i], Sdn_dir[i]+Sdn_dif[i], Lsky[i], emisGrd, spectraGrdOSEB[i], 
             z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], CalcG[1][i]])
@@ -550,7 +550,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     S_nC[i], S_nS[i] = rad.CalcSnCampbell (LAI[i], sza[i], Sdn_dir[i], Sdn_dif[i], fvis[i],
                  fnir[i], spectraVeg['rho_leaf_vis'], spectraVeg['tau_leaf_vis'],
                 spectraVeg['rho_leaf_nir'], spectraVeg['tau_leaf_nir'], 
-                spectraGrd['rsoilv'], spectraGrd['rsoiln'], LAI_eff = LAI_eff[i])    
+                spectraGrd['rsoilvis'], spectraGrd['rsoilnir'], LAI_eff = LAI_eff[i])    
 
     # Initially assume stable atmospheric conditions and set variables for 
     # iteration of the Monin-Obukhov length
@@ -729,12 +729,12 @@ def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
                 leaf bihemispherical reflectance in the optical infrared (700-2500nm),
             tau_leaf_nir : float
                 leaf bihemispherical transmittance in the optical  infrared (700-2500nm).
-    spectraGrd : dict('rho rsoilv', 'rsoiln')
+    spectraGrd : dict('rho rsoilvis', 'rsoilnir')
         Soil spectrum dictonary.
         
-            rsoilv : float
+            rsoilvis : float
                 soil bihemispherical reflectance in the visible (400-700 nm).
-            rsoiln : float
+            rsoilnir : float
                 soil bihemispherical reflectance in the optical infrared (700-2500nm).
     z_0M : float
         Aerodynamic surface roughness length for momentum transfer (m).
@@ -834,7 +834,7 @@ def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
     if np.any(i):    
         z_0M[i]=z0_soil
         d_0[i]=5*z_0M[i]
-        spectraGrdOSEB=fvis*spectraGrd['rsoilv']+fnir* spectraGrd['rsoiln']
+        spectraGrdOSEB=fvis*spectraGrd['rsoilvis']+fnir* spectraGrd['rsoilnir']
         [flag[i], S_nS[i], L_nS[i], LE_S[i], H_S[i], G[i], R_a[i], u_friction[i], L[i], n_iterations[i]]=OSEB(Tr_K_1[i],
             Ta_K_1[i], u[i], ea[i], p[i], Sdn_dir[i]+Sdn_dif[i], Lsky[i], emisGrd, spectraGrdOSEB[i], 
             z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], CalcG[1][i]], T0_K = (Tr_K_0[i], Ta_K_0[i]))
@@ -880,7 +880,7 @@ def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
     S_nC[i], S_nS[i] = rad.CalcSnCampbell (LAI[i], sza[i], Sdn_dir[i], Sdn_dif[i], 
            fvis[i], fnir[i], spectraVeg['rho_leaf_vis'], spectraVeg['tau_leaf_vis'],
             spectraVeg['rho_leaf_nir'], spectraVeg['tau_leaf_nir'], 
-            spectraGrd['rsoilv'], spectraGrd['rsoiln'], LAI_eff = LAI_eff[i])    
+            spectraGrd['rsoilvis'], spectraGrd['rsoilnir'], LAI_eff = LAI_eff[i])    
     
     # First assume that canpy temperature equals the minumum of Air or radiometric T
     Tc[i] = np.minimum(Tr_K_1[i], Ta_K_1[i])

@@ -46,7 +46,7 @@ PACKAGE CONTENTS
 #Stephan Boltzmann constant (W m-2 K-4)
 sb=5.670373e-8 
 
-import meteoUtils as met
+import src.meteoUtils as met
 
 def CalcDifuseRatio(Sdn,sza,press=1013.25,SOLAR_CONSTANT=1360):
     '''Fraction of difuse shortwave radiation.

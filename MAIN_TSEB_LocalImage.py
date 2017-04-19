@@ -1,18 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-Script to run TSEB over a timeseries of point measurements
-
-Created on Dec 29 2015
-@author: Hector Nieto
-
-Modified on Jan 13 2016
-@author: Hector Nieto
-
+Input configuration to run TSEB and OSEB for thermal imagery from 
+Fendt, Germany, ScaleX field campaign 2016.
 """
 
 import time
-from pyTSEB import PyTSEB
+from src.pyTSEB import PyTSEB
+
+
 configFile='Config_LocalImage.txt'
 
 def RunTSEBFromConfigFile(configFile):

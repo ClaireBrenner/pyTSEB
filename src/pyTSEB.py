@@ -700,50 +700,84 @@ class PyTSEB():
         else:
             self.InputFile=self.w_inputtxt.value
 
-    def GetDataTSEB(self,configdata,isImage):
-        '''Parses the parameters in a configuration file directly to TSEB variables for running TSEB'''
-        self.TSEB_MODEL=configdata['TSEB_MODEL']
-        self.lat,self.lon,self.alt,self.stdlon,self.zu,self.zt=(float(configdata['lat']),
-                float(configdata['lon']),float(configdata['altitude']),float(configdata['stdlon']),
-                float(configdata['z_u']),float(configdata['z_t']))
-      
-        self.emisVeg,self.emisGrd=float(configdata['emisVeg']),float(configdata['emisGrd'])
-        self.spectraVeg={'rho_leaf_vis':float(configdata['rhovis']), 'tau_leaf_vis':float(configdata['tauvis']),
-                    'rho_leaf_nir':float(configdata['rhonir']), 'tau_leaf_nir':float(configdata['taunir'])}
-        self.spectraGrd={'rsoilv':float(configdata['rsoilv']), 'rsoiln':float(configdata['rsoiln'])}
-        self.Max_alpha_PT, self.x_LAD, self.leaf_width,self.z0_soil,self.LANDCOVER=(float(configdata['Max_alpha_PT']),
-                        float(configdata['x_LAD']),float(configdata['leaf_width']),float(configdata['z0_soil']),int(configdata['LANDCOVER']))
+    def GetDataTSEB(self, config_file, metData, Imagery, flightime, isImage=True):
+        '''
+        Parses the parameters in a configuration file directly to 
+        TSEB variables for running TSEB
+        '''
+        self.TSEB_MODEL=config_file['ModelMode']
         
-        if int(configdata['CalcG'])==0:
-            self.CalcG=[0,float(configdata['G_constant'])]
-        elif int(configdata['CalcG'])==1:
-            self.CalcG=[1,float(configdata['G_ratio'])]
-        elif int(configdata['CalcG'])==2:
-            self.CalcG=[2,[12.0,float(configdata['GAmp']),float(configdata['Gphase']),float(configdata['Gshape'])]]
+        # Site properties
+        SiteProps = config_file['SiteProps']
+        self.lat,self.lon,self.alt,self.stdlon,self.zu,self.zt = (float(SiteProps['lat']),
+                float(SiteProps['lon']),float(SiteProps['altitude']),float(SiteProps['stdlon']),
+                float(SiteProps['zu']),float(SiteProps['zt']))
+        
+        # Emissivities
+        SiteVegProps = config_file['SiteVegProps']
+        self.emisVeg,self.emisSoil = (float(SiteVegProps['emisVeg']), 
+                float(SiteVegProps['emisSoil']))
+        # Canopy spectral properties   
+        self.spectraVeg = {'rho_leaf_vis':float(SiteVegProps['rhovis']), 'tau_leaf_vis':float(SiteVegProps['tauvis']),
+                    'rho_leaf_nir':float(SiteVegProps['rhonir']), 'tau_leaf_nir':float(SiteVegProps['taunir'])}
+        # Soil spectral properties
+        self.spectraGrd = {'rsoilvis':float(SiteVegProps['rsoilvis']), 'rsoilnir':float(SiteVegProps['rsoilnir'])}
+        
+        # Ancillary data
+        AncProps = config_file['AncProps']
+        self.Max_alpha_PT, self.x_LAD, self.leaf_width,self.z0_soil,self.LANDCOVER = (float(AncProps['maxAlphaPT']),
+                        float(SiteVegProps['xLAD']),float(SiteVegProps['leafWidth']),float(AncProps['z0soil']),int(SiteProps['landCover']))
+        
+        # Soil heat flux paramerization
+        SHFinfo = config_file['SHFinfo']
+        if int(SHFinfo['CalcG'])==0:
+            self.CalcG=[0,float(SHFinfo['G_constant'])]
+        elif int(SHFinfo['CalcG'])==1:
+            self.CalcG=[1,float(SHFinfo['G_ratio'])]
+        elif int(SHFinfo['CalcG'])==2:
+            self.CalcG=[2,[12.0,float(SHFinfo['GAmp']),float(SHFinfo['Gphase']),float(SHFinfo['Gshape'])]]
 
-        self.OutputFile=configdata['OutputFile']
+        self.OutputFile=Imagery['outputFile']
         
         if isImage:
             # Get all the input parameters
-            self.input_LST=str(configdata['Input_LST']).strip('"')
-            self.input_VZA=str(configdata['Input_VZA']).strip('"')
-            self.input_LAI=str(configdata['Input_LAI']).strip('"')
-            self.input_Hc=str(configdata['Input_Hc']).strip('"')
-            self.input_Fc=str(configdata['Input_Fc']).strip('"')
-            self.input_Fg=str(configdata['Input_Fg']).strip('"')
-            self.input_Wc=str(configdata['Input_Wc']).strip('"')
-            self.input_mask=str(configdata['USE_MASK']).strip('"')
-            self.DOY,self.Time,self.Ta_1,self.Sdn,self.u,self.ea,self.Ldn,self.p=(float(configdata['DOY']),float(configdata['Time']),
-                float(configdata['Ta_1']),float(configdata['Sdn']),float(configdata['u']),float(configdata['ea']),
-                str(configdata['Ldn']).strip('"'),str(configdata['p']).strip('"'))
+            self.input_LST=str(Imagery['inputLST']).strip('"')
+            self.input_VZA=str(AncProps['VZA']).strip('"')
+            self.input_LAI=str(SiteVegProps['LAI']).strip('"')
+            self.input_Hc=str(SiteVegProps['Hc']).strip('"')
+            self.input_Fc=str(SiteVegProps['Fc']).strip('"')
+            self.input_Fg=str(SiteVegProps['Fg']).strip('"')
+            self.input_Wc=str(SiteVegProps['Wc']).strip('"')
+            self.input_mask=str(AncProps['useMask']).strip('"')
+            
+            MeteoData = config_file['Meteo']
+            
+            self.DOY,self.Time,self.Ta_1,self.Sdn,self.u,self.ea,self.Ldn,self.p=(float(MeteoData['DOY']),float(MeteoData['Time']),
+                float(MeteoData['Ta_1']),float(MeteoData['Sdn']),float(MeteoData['u']),float(MeteoData['ea']),
+                str(MeteoData['Ldn']).strip('"'),str(MeteoData['p']).strip('"'))
+            
             if self.TSEB_MODEL=='DTD':
-                self.Ta_0=float(configdata['Ta_0'])
+                self.Ta_0=float(MeteoData['Ta_0'])
+            
+            modelMode = self.TSEB_MODEL
+            if modelMode == 'OSEB' or modelMode == 'DTD_OSEB':
+                self.input_LAI = str(0.0)
+                if modelMode == 'DTD_OSEB':
+                    modelMode = 'DTD'
+                    self.TSEB_MODEL = 'DTD'
+                else:
+                    modelMode = 'TSEB_PT'
+                    self.TSEB_MODEL = 'TSEB_PT'  
+                if int(SHFinfo['CalcG'])==1:
+                    self.CalcG=[1,float(0.15)]
         else:
-            self.InputFile=str(configdata['InputFile']).strip('"')
+            PointTimeseriesInput = config_file['PointTimeseriesInput']
+            self.InputFile=str(PointTimeseriesInput['InputFile']).strip('"')
+            
     
     def RunTSEBLocalImage(self):
         ''' Runs TSEB for all the pixel in an image'''
-        import TSEB
+        import src.TSEB as TSEB
         import numpy as np
         import gdal
         from os.path import splitext, dirname, exists
@@ -751,11 +785,16 @@ class PyTSEB():
         # Create an input dictionary
         inDataArray=dict()
         # Open the LST data according to the model
-        if self.TSEB_MODEL=='TSEB_PT' or self.TSEB_MODEL=='DTD':
+        if self.TSEB_MODEL=='TSEB_PT' or self.TSEB_MODEL=='DTD' or self.TSEB_MODEL=='OSEB':
             try:
                 # Read the image mosaic and get the LST at noon time
                 fid=gdal.Open(self.input_LST,gdal.GA_ReadOnly)
                 lst=fid.GetRasterBand(1).ReadAsArray()
+                
+                lst[lst <= -99] = np.nan
+                if np.nanmean(lst) < 100:
+                    lst[:] = lst + 273.16
+                    
                 inDataArray['T_R1']=lst
                 dims=np.shape(lst)
                 # Get the spatial reference information
@@ -768,6 +807,10 @@ class PyTSEB():
             if self.TSEB_MODEL=='DTD':# Also read the sunrise LST
                 # Read the image mosaic and get the LST at sunrise time
                 try:
+                    lst_0 = fid.GetRasterBand(2).ReadAsArray()
+                    lst_0[lst_0 == -99] = np.nan
+                    if np.nanmean(lst_0) < 100:
+                        lst_0[:] = lst_0 + 273.16
                     inDataArray['T_R0']=fid.GetRasterBand(2).ReadAsArray()
                 except:
                     print('Error reading sunrise LST file '+str(self.input_LST))
@@ -841,11 +884,11 @@ class PyTSEB():
             except:
                 print('ERROR: file read '+ str(self.input_mask) + '\n Please type a valid mask file name or USE_MASK=0 for processing the whole image')
         else:
-            mask=np.ones(dims)
+            mask=np.ones(dims, dtype = bool)
+            mask[np.isnan(inDataArray['T_R1'])] = False
         
         #self.RunTSEBImagePixelByPixel(inDataArray, outDataArray, mask)        
         self.RunTSEBImageArray(inDataArray, outDataArray, mask)        
-        
         
         # Write the TIFF output
         outdir=dirname(self.OutputFile)
@@ -857,7 +900,7 @@ class PyTSEB():
         print('Saved Files')
 
     def RunTSEBImageArray(self, inDataArray, outDataArray, mask):
-        import TSEB
+        import src.TSEB as TSEB
         import numpy as np
 
         print("Processing...")        
@@ -954,7 +997,7 @@ class PyTSEB():
     # This function has been replaced by RunTSEBImageArray, but is kept here
     # in case it's needed in the future.
     def RunTSEBImagePixelByPixel(self, inDataArray, outDataArray, mask):
-        import TSEB
+        import src.TSEB as TSEB
         import numpy as np
         import ipywidgets as widgets
         from IPython.display import display        

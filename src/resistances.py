@@ -73,8 +73,8 @@ KN_b = 0.012 # Value propoesd in Kustas et al 1999
 KN_c = 0.0025 # Coefficient from Norman et al. 1995
 KN_C_dash = 90.0 # value proposed in Norman et al. 1995
 
-import MOsimilarity as MO
-import meteoUtils as met
+import src.MOsimilarity as MO
+import src.meteoUtils as met
 
 def CalcD_0 (h_C):
     ''' Zero-plane displacement height
