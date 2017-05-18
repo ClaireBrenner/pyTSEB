@@ -168,13 +168,15 @@ def CalcPsi_M (zoL):
     b = 2.5
     Psi_M[zoL>=0.0] = -a * np.log( zoL[zoL>=0.0] + (1.0 + zoL[zoL>=0.0]**b)**(1.0/b))
     # for unstable conditions
-    y = np.maximum(-zoL, 0.0)
+    with np.errstate(invalid='ignore'):
+        y = np.maximum(-zoL, 0.0)
     a = 0.33
     b = 0.41
     x = (y/a)**0.333333
     Psi_0 = -np.log(a) + 3**0.5*b*a**0.333333*pi/6.0
-    y = np.minimum(y, b**-3)
-    i = zoL < 0
+    with np.errstate(invalid='ignore'):
+        y = np.minimum(y, b**-3)
+        i = zoL < 0
     Psi_M[i] = (np.log(a + y[i]) - 3.0*b*y[i]**0.333333 + (b*a**0.333333)/2.0 * np.log((1.0+x[i])**2/(1.0-x[i]+x[i]**2))+
         3.0**0.5*b*a**0.333333*np.arctan((2.0*x[i]-1.0)/3**0.5) + Psi_0)
     return Psi_M
@@ -322,7 +324,7 @@ def CalcU_Goudriaan (u_C, h_C, LAI, leaf_width, z):
  '''
 
     import numpy as np
-    a=CalcA_Goudriaan (h_C,LAI,leaf_width) # extinction factor for wind speed
+    a=CalcA_Goudriaan(h_C,LAI,leaf_width) # extinction factor for wind speed
     u_z = u_C * np.exp(-a * (1.0 - (z/h_C))) # Eq. 4.48 in Goudriaan 1977
     return u_z
 

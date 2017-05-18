@@ -8,7 +8,7 @@ import pandas as pd
 import sys
 
 # Import met_utils
-sys.path.append('D:\Daten\Evaporation\PYTHON')
+sys.path.append(r'D:\Daten\Evaporation\PYTHON\universal_Functions')
 import met_utils
 
 def createLST0(Imagery, metData, flightime):
@@ -76,4 +76,12 @@ def parseMet(metData, flightime, config_file):
     config_file['Meteo']['ea'] = ea
     config_file['Meteo']['Sdn'] = Sdn
     config_file['Meteo']['Ldn'] = Ldn
+    return config_file
+
+def parseImagery(Imagery, config_file):
+    config_file['Imagery'] = Imagery
+    return config_file
+
+def parseFlightime(flightime, config_file):
+    config_file['Flightime'] = flightime
     return config_file

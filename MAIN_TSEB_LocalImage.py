@@ -6,6 +6,8 @@ Fendt, Germany, ScaleX field campaign 2016.
 """
 
 import time
+import os
+os.chdir('D:\Daten\Evaporation\Source_Codes\TwoSourceEnergyBalanceModel\pyTSEBmod')
 from src.pyTSEB import PyTSEB
 
 

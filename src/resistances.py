@@ -49,6 +49,7 @@ Estimation of roughness
 * :func:`CalcD_0` Zero-plane displacement height.
 * :func:`CalcRoughness` Roughness for different land cover types.
 * :func:`CalcZ_0M` Aerodynamic roughness lenght.
+* :func:`CalcZ_0H` Aerodynamic roughness lenght for heat transfer.
 * :func:`Raupach` Roughness and displacement height factors for discontinuous canopies.
 
 """
@@ -236,6 +237,7 @@ def CalcR_A (z_T, ustar, L, d_0, z_0H, useRi=False, z_star=False):
     
     R_A = np.ones(ustar.shape)*float('inf')
     i = [ustar!=0]
+    # Equation 2.55 in Brtutsaert 2005, p. 47
     R_A[i] =  (R_A_log[i] - Psi_H[i] + Psi_H0[i] + Psi_H_star[i]) /(ustar[i] * k)
     return R_A
    
@@ -273,7 +275,7 @@ def CalcR_S_Kustas (u_S, deltaT):
 def CalcR_X_Norman(LAI, leaf_width, u_d_zm):
     ''' Estimates aerodynamic resistance at the canopy boundary layer.
 
-    Estimates the aerodynamic resistance at the  soil boundary layer based on the
+    Estimates the aerodynamic resistance at the  canopy boundary layer based on the
     original equations in TSEB [Norman1995]_.
 
     Parameters
@@ -302,6 +304,74 @@ def CalcR_X_Norman(LAI, leaf_width, u_d_zm):
     R_x = C_dash_F*(leaf_width/u_d_zm)**0.5
     return R_x
   
+
+def Calc_kB_Lhomme(LAI):
+    ''' Estimates the kB-1 parameter. It combines the aerodynamic (difference 
+    between the roughess length for heat and momentum transfer) and 
+    radiometric kB-1 values (difference between radiometric and surface 
+    temperature.
+    
+    Parameters
+    ----------
+    LAI : float
+        Leaf area index [m^2/m^2]
+        
+    Returns
+    -------
+    kB: float
+        kB-1 parameter.
+
+    References
+    ----------        
+    .. [Lhomme 2000] Lhomme, J. P., Chehbouni, A., Monteny, B.,  
+    Sensible heat flux-radiometric surface temperature relationship over 
+    sparse vegetation: parameterizing B-1 
+    Boundary-Layer Meteorology, Volume 97, Pages 431-457
+    '''
+    import numpy as np    
+    k = 0.4             # Karman constant
+    try:
+        LAI = float(LAI)
+        kB = (8.6347 + 24.33*LAI - 40.969*LAI**2 + 26.121*LAI**3 - 8.5759*LAI**4 +
+            1.4378*LAI**5 - 0.0972*LAI**6)*k
+    except:
+        kB = (8.6347 + 24.33*LAI - 40.969*np.square(LAI) + 26.121*np.power(LAI, 3) - 
+            8.5759*np.power(LAI, 4) + 1.4378*np.power(LAI, 5) - 0.0972*np.power(LAI,6))*k
+    return kB
+    
+def Calc_kB_Kustas(Tr_K, Ta_K, u):
+    ''' Estimates the kB-1 parameter. It combines the aerodynamic (difference 
+    between the roughess length for heat and momentum transfer) and 
+    radiometric kB-1 values (difference between radiometric and surface 
+    temperature.
+    
+    Parameters
+    ----------
+    Tr_K : float
+        Radiometric composite temperature (Kelvin).
+        Ta_K : float 
+        Air temperature (Kelvin).
+    u : float 
+        Wind speed above the canopy (m s-1).
+        
+    Returns
+    -------
+    kB: float
+        kB-1 parameter.
+
+    References
+    ----------        
+    .. [Kustas 1989] Kustas, W.P., Choudhury, B.J., Moran, M.S., Reginato, R.J.,
+    Jackson, R.D., GAy, L.W., Weaver, H.L
+    Determination of sensible heat flux over sparse canopy using thermal 
+    infrared data. 
+    Agricultural and Forest Meteorology, 44  Pages  197-216 
+    '''
+    
+    kB = 0.17*u*(Tr_K - Ta_K)
+    return kB
+   
+
 def CalcZ_0H (z_0M,kB=2):
     '''Estimate the aerodynamic routhness length for heat trasport.
     
@@ -326,7 +396,12 @@ def CalcZ_0H (z_0M,kB=2):
     '''
 
     from math import exp
-    z_OH = z_0M/exp(kB)
+    import numpy as np
+    
+    try:
+        z_OH = z_0M/exp(kB)
+    except:
+        z_OH = z_0M/np.exp(kB)
     return z_OH
     
 def CalcZ_0M (h_C):

@@ -38,6 +38,7 @@ PACKAGE CONTENTS
 * :func:`Get_SunAngles` Sun Zenith and Azimuth Angles.
 * :func:`CalcVaporPressure` Saturation water vapour pressure.
 * :func:`CalcDeltaVaporPressure` Slope of saturation water vapour pressure.
+* :func:`CalcEa` Water vapor pressure
 '''
 
 #==============================================================================
@@ -313,3 +314,27 @@ def CalcDeltaVaporPressure(T_K):
     T_C=T_K-273.15
     s= 4098.0 * (0.6108*np.exp(17.27*T_C/(T_C+237.3)))/((T_C+237.3)**2)
     return s
+
+def CalcEa(absHum, Ta_K):
+    '''Calculates the water vapor pressure (hPa) from absolute humidity 
+    values in g/m3. 
+    
+    Parameters
+    ----------
+    absHum : float
+        absolute humdity in the atmosphere (TK3 output) (g/m3).
+    Ta_K : float
+        air temperature at reference height (Kelvin).
+    
+    Returns
+    -------
+    e_hPa : float
+        water vapor pressure (hPa).
+
+    References
+    ----------
+    based on supplement table 2.2 from Foken (2003): Angewandte Meteorologiw (pp 43).'''
+    
+    cons = 0.21667
+    e_hPa = Ta_K * absHum /(1000*cons)
+    return e_hPa

@@ -79,14 +79,14 @@ u_thres=0.00001
 # mimimun allowed friction velocity    
 u_friction_min=0.01;
 #Maximum number of interations
-ITERATIONS=15
+ITERATIONS=100
 # kB coefficient
 kB=0.0
 
 def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             LAI,hc,emisVeg,emisGrd,spectraVeg,spectraGrd,z_0M,d_0,zu,zt,
             leaf_width=0.1,z0_soil=0.01,alpha_PT=1.26,f_c=1.0,f_g=1.0,wc=1.0,
-            CalcG=[1,0.35]):
+            CalcG=[1,0.35],mask=None):
                 
     ''' TSEB using component canopy and soil temperatures.
 
@@ -249,7 +249,9 @@ def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     z_0H=res.CalcZ_0H(z_0M, kB=kB) # Roughness length for heat transport
     
     # Calculate LAI dependent parameters for dataset where LAI > 0
-    i = ~i    
+    i = ~i  
+    i = np.logical_and(i, mask)
+
     omega0 = np.zeros(Ts.shape)
     omega0[i] = CI.CalcOmega0_Kustas(LAI[i], f_c[i], isLAIeff=True) # Clumping factor at nadir
     omega = CI.CalcOmega_Kustas(omega0, sza, wc=wc) # Clumping factor at an angle      
@@ -257,7 +259,7 @@ def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     
     # Calcualte short wave net radiation of canopy and soil
     LAI_eff = F*omega
-    S_nC[i], S_nS[i] = rad.CalcSnCampbell (LAI, sza[i], Sdn_dir[i], Sdn_dif[i], fvis[i],
+    S_nC[i], S_nS[i] = rad.CalcSnCampbell(LAI, sza[i], Sdn_dir[i], Sdn_dif[i], fvis[i],
                  fnir[i], spectraVeg['rho_leaf_vis'], spectraVeg['tau_leaf_vis'],
                 spectraVeg['rho_leaf_nir'], spectraVeg['tau_leaf_nir'], 
                 spectraGrd['rsoilvis'], spectraGrd['rsoilnir'], LAI_eff = LAI_eff[i])     
@@ -370,7 +372,7 @@ def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
 def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             LAI,hc,emisVeg,emisGrd,spectraVeg,spectraGrd,z_0M,d_0,zu,zt,
             leaf_width=0.1,z0_soil=0.01,alpha_PT=1.26,f_c=1.0,f_g=1.0,wc=1.0,
-            CalcG=[1,0.35]):
+            CalcG=[1,0.35],mask=None):
     '''Priestley-Taylor TSEB
 
     Calculates the Priestley Taylor TSEB fluxes using a single observation of
@@ -538,7 +540,10 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     z_0H=res.CalcZ_0H(z_0M, kB=kB) # Roughness length for heat transport
     
     # Calculate LAI dependent parameters for dataset where LAI > 0
-    i = ~i    
+    i = ~i 
+    if mask == None:
+        mask = np.ones(Tr_K.shape, dtype = bool)
+#    i = np.logical_and(i, mask)
     omega0 = np.zeros(Tr_K.shape)
     omega0[i] = CI.CalcOmega0_Kustas(LAI[i], f_c[i], isLAIeff=True) # Clumping factor at nadir
     Omega = CI.CalcOmega_Kustas(omega0, sza, wc=wc) # Clumping factor at an angle      
@@ -559,6 +564,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     u_friction = np.maximum(u_friction_min, u_friction)
     L_old = np.ones(Tr_K.shape)
     L_old[LAI==0] = L[LAI==0]
+    L_old[LAI==0] = 0
     L_diff = np.ones(Tr_K.shape)*float('inf')
     L_diff[LAI==0] = 0
     max_iterations=ITERATIONS
@@ -677,7 +683,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
 def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
              Lsky,LAI,hc,emisVeg,emisGrd,spectraVeg,spectraGrd,z_0M,d_0,zu,zt,
              leaf_width=0.1,z0_soil=0.01,alpha_PT=1.26,f_c=1.0,f_g=1.0,wc=1.0,
-             CalcG=[1,0.35]):
+             CalcG=[1,0.35],mask=None):
     ''' Calculate daytime Dual Time Difference TSEB fluxes
     
     Parameters
@@ -845,7 +851,9 @@ def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
     c_p = met.CalcC_p(p, ea)  # Heat capacity of air 
     
     # Calculate LAI dependent parameters for dataset where LAI > 0
-    i = ~i    
+    i = ~i  
+    i = np.logical_and(i, mask)
+
     omega0 = np.zeros(Tr_K_1.shape)
     omega0[i] = CI.CalcOmega0_Kustas(LAI[i], f_c[i], isLAIeff=True) # Clumping factor at nadir
     omega = CI.CalcOmega_Kustas(omega0,sza,wc=wc) # Clumping factor at an angle    
@@ -966,7 +974,8 @@ def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
     return [flag, Ts, Tc, T_AC,S_nS, S_nC, L_nS,L_nC, LE_C,H_C,LE_S,H_S,G,
                 R_s,R_x,R_a,u_friction, L,Ri,n_iterations]        
 
-def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt, CalcG=[1,0.35], T0_K = []):
+def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
+          T0_K=[],kB=0.0,mask=None):
     '''Calulates bulk fluxes from a One Source Energy Balance model
 
     Parameters
@@ -1006,6 +1015,7 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt, CalcG=[1,0.35], 
         If given it contains radiometric composite temperature (K) at time 0 as 
         the first element and air temperature (K) at time 0 as the second element, 
         in order to derive differential temperatures like is done in DTD
+	kB:	Add kB value to run empirical kB parameterizations. Default is 0.
         
     
     Returns
@@ -1082,13 +1092,13 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt, CalcG=[1,0.35], 
     # given threshold
     for n_iterations in range(max_iterations):
         flag = np.zeros(Tr_K.shape)
-        G=G_calc
+        G=G_calc.copy()
         
         # Calculate the aerodynamic resistances
         if differentialT:
-            R_a=res.CalcR_A (zu, u_friction, Ri, d_0, z_0H, useRi=True)
+            R_a=res.CalcR_A(zu, u_friction, Ri, d_0, z_0H, useRi=True)
         else:
-            R_a=res.CalcR_A ( zt, u_friction, L, d_0, z_0H)
+            R_a=res.CalcR_A(zt, u_friction, L, d_0, z_0H)
         R_a = np.maximum( 1e-3,R_a)
         
         # Calculate bulk fluxes assuming that since there is no vegetation,
@@ -1117,7 +1127,7 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt, CalcG=[1,0.35], 
             u_friction=MO.CalcU_star (u, zu, L, d_0, z_0M)
             u_friction = np.maximum(u_friction_min, u_friction)
         u_diff=abs(u_friction-u_old)/abs(u_old)
-        u_old[:]=u_friction
+        u_old[:]=u_friction.copy()
         
         #Stop the iteration if differences are below the threshold
         if np.all(np.logical_and(L_diff < L_thres, u_diff < u_thres)):

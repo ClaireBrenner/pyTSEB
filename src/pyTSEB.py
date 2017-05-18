@@ -92,8 +92,8 @@ class PyTSEB():
         self.rhonir=0.32
         self.tauvis=0.08
         self.taunir=0.33
-        self.rsoilv=0.15
-        self.rsoiln=0.25
+        self.rsoilvis=0.15
+        self.rsoilnir=0.25
         self.emisVeg=0.98
         self.emisGrd=0.95
         # Surface Properties
@@ -116,11 +116,11 @@ class PyTSEB():
         # Output variables saved in images
         self.fields=('H1','LE1','R_n1','G1')
         # Ancillary output variables
-        self.anc_fields=('H_C1','LE_C1','LE_partition','T_C1', 'T_S1','R_ns1','R_nl1', 'u_friction', 'L')
+        self.anc_fields=('H_C1','LE_C1','LE_partition','T_C1', 'T_S1','R_ns1','R_nl1', 'u_friction', 'L', 'R_A1', 'R_X1', 'R_S1')
         # File Configuration variables
         self.input_commom_vars=('TSEB_MODEL','lat','lon','altitude','stdlon',
                    'z_t','z_u','emisVeg','emisGrd','rhovis','tauvis',
-                   'rhonir','taunir','rsoilv','rsoiln','Max_alpha_PT',
+                   'rhonir','taunir','rsoilvis','rsoilnir','Max_alpha_PT',
                    'x_LAD','z0_soil','LANDCOVER','leaf_width',
                    'CalcG','G_constant','G_ratio','GAmp','Gphase','Gshape','OutputFile')
         self.input_image_vars=['Input_LST','Input_VZA','USE_MASK','Input_LAI','Input_Fc',
@@ -277,8 +277,8 @@ class PyTSEB():
         self.w_tauvis.value=configdata['tauvis']
         self.w_rhonir.value=configdata['rhonir']
         self.w_taunir.value=configdata['taunir']
-        self.w_rsoilv.value=configdata['rsoilv']
-        self.w_rsoiln.value=configdata['rsoiln']
+        self.w_rsoilvis.value=configdata['rsoilvis']
+        self.w_rsoilnir.value=configdata['rsoilnir']
         self.w_PT.value=configdata['Max_alpha_PT']
         self.w_LAD.value=configdata['x_LAD']
         self.w_leafwidth.value=configdata['leaf_width']
@@ -372,8 +372,8 @@ class PyTSEB():
         fid.write('tauvis='+str(self.w_tauvis.value)+'\n')
         fid.write('taunir='+str(self.w_taunir.value)+'\n')
         fid.write('taunir='+str(self.w_taunir.value)+'\n')
-        fid.write('rsoilv='+str(self.w_rsoilv.value)+'\n')
-        fid.write('rsoiln='+str(self.w_rsoiln.value)+'\n')
+        fid.write('rsoilvis='+str(self.w_rsoilvis.value)+'\n')
+        fid.write('rsoilnir='+str(self.w_rsoilnir.value)+'\n')
 
         fid.write('\n# Surface Properties\n')
         fid.write('Max_alpha_PT='+str(self.w_PT.value)+'\n')
@@ -465,12 +465,12 @@ class PyTSEB():
         self.w_rhonir=widgets.BoundedFloatText(value=self.rhonir,min=0,max=1,description='Leaf refl. NIR',width=80)
         self.w_taunir=widgets.BoundedFloatText(value=self.taunir,min=0,max=1,description='Leaf trans. NIR',width=80)
         
-        self.w_rsoilv=widgets.BoundedFloatText(value=self.rsoilv,min=0,max=1,description='Soil refl. PAR',width=80)
-        self.w_rsoiln=widgets.BoundedFloatText(value=self.rsoiln,min=0,max=1,description='Soil refl. NIR',width=80)
+        self.w_rsoilvis=widgets.BoundedFloatText(value=self.rsoilvis,min=0,max=1,description='Soil refl. PAR',width=80)
+        self.w_rsoilnir=widgets.BoundedFloatText(value=self.rsoilnir,min=0,max=1,description='Soil refl. NIR',width=80)
         self.w_emisVeg=widgets.BoundedFloatText(value=self.emisVeg,min=0,max=1,description='Leaf emissivity',width=80)
         self.w_emisSoil=widgets.BoundedFloatText(value=self.emisGrd,min=0,max=1,description='Soil emissivity',width=80)
         self.specPage=widgets.VBox([widgets.HBox([self.w_rhovis,self.w_tauvis,self.w_rhonir,self.w_taunir]),
-                    widgets.HBox([self.w_rsoilv,self.w_rsoiln,self.w_emisVeg,self.w_emisSoil])], background_color='#EEE')
+                    widgets.HBox([self.w_rsoilvis,self.w_rsoilnir,self.w_emisVeg,self.w_emisSoil])], background_color='#EEE')
     
     def Meteorology(self):
         '''Widgets for meteorological forcing'''
@@ -670,7 +670,7 @@ class PyTSEB():
         self.emisVeg,self.emisGrd=self.w_emisVeg.value,self.w_emisSoil.value
         self.spectraVeg={'rho_leaf_vis':self.w_rhovis.value, 'tau_leaf_vis':self.w_tauvis.value,
                     'rho_leaf_nir':self.w_rhonir.value, 'tau_leaf_nir':self.w_taunir.value }
-        self.spectraGrd={'rsoilv':self.w_rsoilv.value, 'rsoiln':self.w_rsoiln.value}
+        self.spectraGrd={'rsoilvis':self.w_rsoilvis.value, 'rsoilnir':self.w_rsoilnir.value}
         self.Max_alpha_PT, self.x_LAD, self.leaf_width,self.z0_soil,self.LANDCOVER=(self.w_PT.value,self.w_LAD.value,
                self.w_leafwidth.value,self.w_zsoil.value,self.w_lc.value)
        
@@ -700,7 +700,7 @@ class PyTSEB():
         else:
             self.InputFile=self.w_inputtxt.value
 
-    def GetDataTSEB(self, config_file, metData, Imagery, flightime, isImage=True):
+    def GetDataTSEB(self, config_file, isImage=True):
         '''
         Parses the parameters in a configuration file directly to 
         TSEB variables for running TSEB
@@ -736,10 +736,10 @@ class PyTSEB():
             self.CalcG=[1,float(SHFinfo['G_ratio'])]
         elif int(SHFinfo['CalcG'])==2:
             self.CalcG=[2,[12.0,float(SHFinfo['GAmp']),float(SHFinfo['Gphase']),float(SHFinfo['Gshape'])]]
-
-        self.OutputFile=Imagery['outputFile']
         
         if isImage:
+            Imagery = config_file['Imagery']
+            self.OutputFile=Imagery['outputFile']
             # Get all the input parameters
             self.input_LST=str(Imagery['inputLST']).strip('"')
             self.input_VZA=str(AncProps['VZA']).strip('"')
@@ -773,6 +773,7 @@ class PyTSEB():
         else:
             PointTimeseriesInput = config_file['PointTimeseriesInput']
             self.InputFile=str(PointTimeseriesInput['InputFile']).strip('"')
+            self.OutputFile=str(PointTimeseriesInput['OutputFile']).strip('"')
             
     
     def RunTSEBLocalImage(self):
@@ -790,7 +791,6 @@ class PyTSEB():
                 # Read the image mosaic and get the LST at noon time
                 fid=gdal.Open(self.input_LST,gdal.GA_ReadOnly)
                 lst=fid.GetRasterBand(1).ReadAsArray()
-                
                 lst[lst <= -99] = np.nan
                 if np.nanmean(lst) < 100:
                     lst[:] = lst + 273.16
@@ -901,6 +901,7 @@ class PyTSEB():
 
     def RunTSEBImageArray(self, inDataArray, outDataArray, mask):
         import src.TSEB as TSEB
+        import src.resistances as res
         import numpy as np
 
         print("Processing...")        
@@ -915,7 +916,7 @@ class PyTSEB():
         wc=inDataArray['w_C']
         hc=inDataArray['h_C']
         # Calculate Roughness
-        z_0M, d_0=TSEB.res.CalcRoughness (lai, hc,wc,self.LANDCOVER)
+        z_0M, d_0= res.CalcRoughness (lai, hc,wc,self.LANDCOVER)
         vza=inDataArray['VZA']
         # Get meteorological inputs
         p = inDataArray['p']
@@ -941,7 +942,7 @@ class PyTSEB():
                  n_iterations]=TSEB.DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif,fvis,fnir,
                     sza,Lsky,lai,hc,self.emisVeg,self.emisGrd,self.spectraVeg,self.spectraGrd,z_0M,d_0,self.zu,self.zt,
                     f_c=fc,wc=wc,f_g=f_g,leaf_width=self.leaf_width,z0_soil=self.z0_soil,alpha_PT=self.Max_alpha_PT,
-                    CalcG=self.CalcG)
+                    CalcG=self.CalcG,mask=mask)
         elif self.TSEB_MODEL=='TSEB_PT':        
             #Run TSEB
             Tr_K_1=inDataArray['T_R1']
@@ -950,7 +951,7 @@ class PyTSEB():
                  n_iterations]=TSEB.TSEB_PT(Tr_K_1,vza,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif,fvis,fnir,sza,Lsky,lai,
                     hc,self.emisVeg,self.emisGrd,self.spectraVeg,self.spectraGrd,z_0M,d_0,self.zu,self.zt,
                     f_c=fc,f_g=f_g,wc=wc,leaf_width=self.leaf_width,z0_soil=self.z0_soil,alpha_PT=self.Max_alpha_PT,
-                    CalcG=self.CalcG)
+                    CalcG=self.CalcG,mask=mask)
         elif self.TSEB_MODEL=='TSEB_2T':
             Tc=inDataArray['T_C']
             Ts=inDataArray['T_S']
@@ -960,39 +961,88 @@ class PyTSEB():
                  n_iterations] = TSEB.TSEB_2T(Tc, Ts, Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif,fvis,fnir,sza,Lsky,lai,
                     hc,self.emisVeg,self.emisGrd,self.spectraVeg,self.spectraGrd,z_0M,d_0,self.zu,self.zt,
                     f_c=fc,f_g=f_g,wc=wc,leaf_width=self.leaf_width,z0_soil=self.z0_soil,alpha_PT=self.Max_alpha_PT,
-                    CalcG=self.CalcG)
+                    CalcG=self.CalcG,mask=mask)       
+        elif self.TSEB_MODEL=='OSEB':
+            Tr_K_1=inDataArray['T_R1']
+            Ta_K_1=inDataArray['T_A1']
+            if np.nanmean(lai) > 0: # Assumption of emissivity
+                emis = self.emisVeg
+            else:
+                emis = self.emisGrd
+            albedo=fvis*self.spectraGrd['rsoilvis']+fnir* self.spectraGrd['rsoilnir']
+            [flag,S_n, L_n, LE,H,G,R_a,u_friction, L,n_iterations] = TSEB.OSEB(Tr_K_1,
+                Ta_K_1,u,ea,p,Sdn_dif + Sdn_dir,Lsky,emis,albedo,z_0M,d_0,
+                self.zu,self.zt, self.CalcG) #, T0_K = [], kB = 0.0, mask = mask)
+        
+        if self.TSEB_MODEL=='OSEB':
+            # Calculate the bulk fluxes
+            Rn=S_n+L_n
+            # mask outputs
+            LE[~mask] = -99
+            H[~mask] = -99
+            G[~mask] = -99
+            # Write the data in the output dictionary
+            outDataArray['R_A1']=R_a
+            outDataArray['R_n1']=S_n+L_n
+            outDataArray['R_ns1']=S_n
+            outDataArray['R_nl1']=L_n
+            outDataArray['H1']=H
+            outDataArray['G1']=G
+            outDataArray['LE1']=LE
+            outDataArray['L']=L
+            outDataArray['u_friction']=u_friction
+            outDataArray['theta_s1']=sza
+            outDataArray['albedo1']=1.0-Rn/self.Sdn
+            outDataArray['F']=lai
             
-        # Calculate the bulk fluxes
-        LE=LE_C+LE_S
-        H=H_C+H_S
-        Rn=S_nC+S_nS+L_nC+L_nS
-        # Write the data in the output dictionary
-        outDataArray['R_A1']=R_a
-        outDataArray['R_X1']=R_x
-        outDataArray['R_S1']=R_s
-        outDataArray['R_n1']=S_nS+S_nC+L_nS+L_nC
-        outDataArray['R_ns1']=S_nS+S_nC
-        outDataArray['R_nl1']=L_nS+L_nC
-        outDataArray['delta_R_n1']=S_nC+L_nC
-        outDataArray['H_C1']=H_C
-        outDataArray['H_S1']=H_S
-        outDataArray['H1']=H
-        outDataArray['G1']=G
-        outDataArray['LE_C1']=LE_C
-        outDataArray['LE_S1']=LE_S
-        outDataArray['LE1']=LE
-        outDataArray['LE_partition'][outDataArray['LE1']>0]=LE_C[outDataArray['LE1']>0]/LE[outDataArray['LE1']>0]
-        outDataArray['T_C1']=Tc
-        outDataArray['T_S1']=Ts
-        outDataArray['T_AC1']=T_AC
-        outDataArray['L']=L
-        outDataArray['u_friction']=u_friction
-        outDataArray['theta_s1']=sza
-        outDataArray['albedo1']=1.0-Rn/self.Sdn
-        outDataArray['F']=lai
+            # mask output
+            outDataArray['R_n1'][~mask] = -99 
+            outDataArray['R_ns1'][~mask] = np.nan 
+            outDataArray['R_nl1'][~mask] = np.nan   		
+            print("Finished!")
             
-        print("Finished!")
+        else:
+            # Calculate the bulk fluxes
+            LE=LE_C+LE_S
+            H=H_C+H_S
+            Rn=S_nC+S_nS+L_nC+L_nS
+            # mask outputs
+            LE[~mask] = -99
+            H[~mask] = -99
+            G[~mask] = -99
+            # Write the data in the output dictionary
+            outDataArray['R_A1']=R_a
+            outDataArray['R_X1']=R_x
+            outDataArray['R_S1']=R_s
+            outDataArray['R_n1']=S_nS+S_nC+L_nS+L_nC
+            outDataArray['R_ns1']=S_nS+S_nC
+            outDataArray['R_nl1']=L_nS+L_nC
+            outDataArray['delta_R_n1']=S_nC+L_nC
+            outDataArray['H_C1']=H_C
+            outDataArray['H_S1']=H_S
+            outDataArray['H1']=H
+            outDataArray['G1']=G
+            outDataArray['LE_C1']=LE_C
+            outDataArray['LE_S1']=LE_S
+            outDataArray['LE1']=LE
+            outDataArray['LE_partition'][outDataArray['LE1']>0]=LE_C[outDataArray['LE1']>0]/LE[outDataArray['LE1']>0]
+            outDataArray['T_C1']=Tc
+            outDataArray['T_S1']=Ts
+            outDataArray['T_AC1']=T_AC
+            outDataArray['L']=L
+            outDataArray['u_friction']=u_friction
+            outDataArray['theta_s1']=sza
+            outDataArray['albedo1']=1.0-Rn/self.Sdn
+            outDataArray['F']=lai
             
+            # mask output
+            outDataArray['R_n1'][~mask] = -99 
+            outDataArray['R_ns1'][~mask] = np.nan 
+            outDataArray['R_nl1'][~mask] = np.nan 
+            outDataArray['H_C1'][~mask] = np.nan
+            outDataArray['H_S1'][~mask] = np.nan
+            outDataArray['LE_partition'][~mask] = np.nan
+            print("Finished!")
         
     # This function has been replaced by RunTSEBImageArray, but is kept here
     # in case it's needed in the future.
@@ -1073,7 +1123,7 @@ class PyTSEB():
                 if lai==0:# Bare Soil, One Source Energy Balance Model
                     z_0M=self.z0_soil
                     d_0=5.*z_0M
-                    albedoGrd=fvis*self.spectraGrd['rsoilv']+fnir* self.spectraGrd['rsoiln']
+                    albedoGrd=fvis*self.spectraGrd['rsoilvis']+fnir* self.spectraGrd['rsoilnir']
                     [flag,S_nS, L_nS, LE_S,H_S,G,R_a,u_friction, L,counter]=TSEB.OSEB(Ts,Ta_K_1,self.u,self.ea,p,self.Sdn,
                                 Lsky,self.emisGrd,albedoGrd,z_0M,d_0,self.zu,self.zt, CalcG=self.CalcG)
                 else:
@@ -1082,10 +1132,10 @@ class PyTSEB():
                     Omega=TSEB.CI.CalcOmega_Kustas(omega0,sza,wc=self.wc)
                     LAI_eff=F*Omega
                     # Estimate the net shorwave radiation 
-                    S_nS, S_nC = TSEB.rad.CalcSnCampbell (lai, sza, Sdn_dir, Sdn_dif, fvis,fnir, 
+                    S_nS, S_nC = TSEB.rad.CalcSnCampbell(lai, sza, Sdn_dir, Sdn_dif, fvis,fnir, 
                         self.spectraVeg['rho_leaf_vis'], self.spectraVeg['tau_leaf_vis'],
                         self.spectraVeg['rho_leaf_nir'], self.spectraVeg['tau_leaf_nir'], 
-                        self.spectraGrd['rsoilv'], self.spectraGrd['rsoiln'],LAI_eff=LAI_eff)
+                        self.spectraGrd['rsoilvis'], self.spectraGrd['rsoilnir'],LAI_eff=LAI_eff)
                     # And the net longwave radiation
                     L_nS,L_nC=TSEB.rad.CalcLnKustas (Tc, Ts,Lsky, lai,self.emisVeg, self.emisGrd)
                     # Run TSEB with the component temperatures Ts and Tc    
@@ -1225,7 +1275,7 @@ class PyTSEB():
 
     def RunTSEBPointSeriesArray(self):
         ''' Runs TSEB for all the pixel in an image'''
-        import TSEB
+        import src.TSEB as TSEB
         from  os. path import dirname, exists
         from os import mkdir
         import numpy as np  
@@ -1271,7 +1321,7 @@ class PyTSEB():
                         p = TSEB.met.CalcPressure(self.alt)
                         addData(inData, 'p', p) 
                     if 'fc' not in self.inputNames: # Fractional cover
-                        addData(inData, 'fc', self.fc) # Use default value
+                        addData(inData, 'fc', self.f_c) # Use default value
                     if 'wc' not in self.inputNames: # Canopy width to height ratio
                         addData(inData, 'wc', self.wc) # Use default value
                     if 'fg' not in self.inputNames: # Green fraction
@@ -1291,7 +1341,9 @@ class PyTSEB():
                         emisAtm = TSEB.rad.CalcEmiss_atm(inData['ea'][-1], inData['Ta'][-1])
                         Lsky = emisAtm * TSEB.met.CalcStephanBoltzmann(inData['Ta'][-1])
                         addData(inData, 'Lsky', Lsky)                        
-
+                    else:
+                        inData['Lsky'] = inData['Ldn']
+                        
                     # Calculate Roughness
                     z_0M, d_0 = TSEB.res.CalcRoughness (inData['LAI'][-1:], inData['hc'][-1:], inData['wc'][-1:], self.LANDCOVER)
                     addData(inData, 'z_0M', z_0M)
@@ -1341,8 +1393,18 @@ class PyTSEB():
                             f_g=inData['fg'], wc=inData['wc'], leaf_width=self.leaf_width, z0_soil=self.z0_soil,
                             alpha_PT=self.Max_alpha_PT, CalcG=self.CalcG)
             Ts = inData['Ts']
-            Tc = inData['Tc']
-        
+            Tc = inData['Tc'] 
+        elif self.TSEB_MODEL=='OSEB':  
+            if np.nanmean(inData['LAI']) > 0: # Assumption of emissivity
+                emis = self.emisVeg
+            else:
+                emis = self.emisGrd
+            albedo=fvis*self.spectraGrd['rsoilvis']+fnir* self.spectraGrd['rsoilnir']
+            [flag,S_n, L_n, LE,H,G,R_a,u_friction, L,n_iterations] = TSEB.OSEB(inData['Trad'],
+                inData['Ta'],inData['u'],inData['ea'],inData['p'],
+                inData['Sdn_dir'] + inData['Sdn_dif'],inData['Lsky'],emis,albedo,inData['z_0M'],inData['d_0'],
+                self.zu,self.zt,self.CalcG) #, T0_K = [], kB = 0.0)
+            
         # Calculate the bulk fluxes
         LE=LE_C+LE_S
         H=H_C+H_S
@@ -1556,7 +1618,7 @@ class PyTSEB():
                 if lai==0:# Bare Soil, One Source Energy Balance Model
                     z_0M=self.z0_soil
                     d_0=5.*z_0M
-                    albedoGrd=fvis*self.spectraGrd['rsoilv']+fnir* self.spectraGrd['rsoiln']
+                    albedoGrd=fvis*self.spectraGrd['rsoilvis']+fnir* self.spectraGrd['rsoilnir']
                     [flag,S_nS, L_nS, LE_S,H_S,G,R_a,u_friction, L,counter]=TSEB.OSEB(Ts,Ta_K_1,u,ea,p,Sdn,
                                 Lsky,self.emisGrd,albedoGrd,z_0M,d_0,self.zu,self.zt, CalcG=self.CalcG)
                 else:
@@ -1565,10 +1627,10 @@ class PyTSEB():
                     Omega=TSEB.CI.CalcOmega_Kustas(omega0,sza,wc=wc)
                     LAI_eff=F*Omega
                     # Estimate the net shorwave radiation 
-                    S_nS, S_nC = TSEB.rad.CalcSnCampbell (lai, sza, Sdn_dir, Sdn_dif, fvis,fnir, 
+                    S_nS, S_nC = TSEB.rad.CalcSnCampbell(lai, sza, Sdn_dir, Sdn_dif, fvis,fnir, 
                         self.spectraVeg['rho_leaf_vis'], self.spectraVeg['tau_leaf_vis'],
                         self.spectraVeg['rho_leaf_nir'], self.spectraVeg['tau_leaf_nir'], 
-                        self.spectraGrd['rsoilv'], self.spectraGrd['rsoiln'],LAI_eff=LAI_eff)
+                        self.spectraGrd['rsoilvis'], self.spectraGrd['rsoilnir'],LAI_eff=LAI_eff)
                     # And the net longwave radiation
                     L_nS,L_nC=TSEB.rad.CalcLnKustas (Tc, Ts,Lsky, lai,self.emisVeg, self.emisGrd)
                     # Run TSEB with the component temperatures Ts and Tc    
