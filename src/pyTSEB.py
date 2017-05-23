@@ -1360,7 +1360,6 @@ class PyTSEB():
         elif self.CalcG[0] == 2: # Santanello and Friedls G
             self.CalcG[1][0] = inData['Time'] # Set the time in the CalcG flag to compute the Santanello and Friedl G
         
-        
         #======================================
         # Run the chosen model
         

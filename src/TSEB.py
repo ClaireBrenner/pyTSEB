@@ -644,7 +644,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             elif CalcG[0]==1:
                 G[i]=CalcG_Ratio(R_n_soil[i], CalcG[1][i])
             elif CalcG[0]==2:
-                G[i]=CalcG_TimeDiff (R_n_soil[i], CalcG[1][i])
+                G[i]=CalcG_TimeDiff(R_n_soil[i], CalcG[1][i])
             
             # Estimate latent heat fluxes as residual of energy balance at the
             # soil and the canopy            

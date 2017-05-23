@@ -17,7 +17,7 @@ os.chdir('D:\Daten\Evaporation\Source_Codes\TwoSourceEnergyBalanceModel\pyTSEBmo
 from src.pyTSEB import PyTSEB
 
 # Loading config file
-dir1 = r'D:\Daten\Auswertung_Feldarbeiten_Pt_Nobressart\Timeseries'
+dir1 = r'D:\Daten\Auswertung_Feldarbeiten_Pt_Nobressart\PYTHON\Timeseries'
 sys.path.append(dir1)
 from setupConfig_PN_ts import config_file
 
