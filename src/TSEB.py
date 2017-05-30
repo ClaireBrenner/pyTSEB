@@ -541,7 +541,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     
     # Calculate LAI dependent parameters for dataset where LAI > 0
     i = ~i 
-    if mask == None:
+    if mask is None:
         mask = np.ones(Tr_K.shape, dtype = bool)
 #    i = np.logical_and(i, mask)
     omega0 = np.zeros(Tr_K.shape)
@@ -644,7 +644,8 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             elif CalcG[0]==1:
                 G[i]=CalcG_Ratio(R_n_soil[i], CalcG[1][i])
             elif CalcG[0]==2:
-                G[i]=CalcG_TimeDiff(R_n_soil[i], CalcG[1][i])
+                #G[i]=CalcG_TimeDiff(R_n_soil[i], CalcG[1][i])
+                G[i]=CalcG_TimeDiff(R_n_soil[i], CalcG[1][:, i])
             
             # Estimate latent heat fluxes as residual of energy balance at the
             # soil and the canopy            
@@ -1211,11 +1212,11 @@ def CalcG_TimeDiff (R_n, G_param=[12.0,0.35, 3.0,24.0]):
     
     from math import cos, pi
     # Get parameters
-    time=12.0-G_param[0]
-    A = G_param[1]
-    phase_shift=G_param[2]
-    B = G_param[3]
-    G_ratio=A*cos(2.0*pi*(time+phase_shift)/B)
+    time=12.0-G_param[0, :]
+    A = G_param[1, :]
+    phase_shift=G_param[2, :]
+    B = G_param[3, :]
+    G_ratio=A*np.cos(2.0*np.pi*(time+phase_shift)/B)
     G = R_n * G_ratio
     return G
 
@@ -1675,7 +1676,11 @@ def _check_default_parameter_size(parameter, input_array):
     if parameter.size == 1:
         parameter = np.ones(input_array.shape) * parameter
         return np.asarray(parameter)
-    elif parameter.shape != input_array.shape:
+    elif len(input_array.shape) == 2 and parameter.shape[-2:] != input_array.shape:
+        raise ValueError(
+            'dimension mismatch between parameter array and input array with shapes %s and %s' %
+            (parameter.shape, input_array.shape))
+    elif len(input_array.shape) == 1 and parameter.shape[-1:] != input_array.shape:
         raise ValueError(
             'dimension mismatch between parameter array and input array with shapes %s and %s' %
             (parameter.shape, input_array.shape))

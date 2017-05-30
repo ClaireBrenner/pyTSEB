@@ -735,6 +735,7 @@ class PyTSEB():
         elif int(SHFinfo['CalcG'])==1:
             self.CalcG=[1,float(SHFinfo['G_ratio'])]
         elif int(SHFinfo['CalcG'])==2:
+            # The twelve has to be overwritten
             self.CalcG=[2,[12.0,float(SHFinfo['GAmp']),float(SHFinfo['Gphase']),float(SHFinfo['Gshape'])]]
         
         if isImage:
@@ -756,6 +757,11 @@ class PyTSEB():
                 float(MeteoData['Ta_1']),float(MeteoData['Sdn']),float(MeteoData['u']),float(MeteoData['ea']),
                 str(MeteoData['Ldn']).strip('"'),str(MeteoData['p']).strip('"'))
             
+            # Get correct time for time shift according to Santanello and Friedl
+            if int(SHFinfo['CalcG'])==2:
+                # The twelve has to be overwritten
+                self.CalcG[1][0] = self.Time
+            
             if self.TSEB_MODEL=='DTD':
                 self.Ta_0=float(MeteoData['Ta_0'])
             
@@ -774,7 +780,10 @@ class PyTSEB():
             PointTimeseriesInput = config_file['PointTimeseriesInput']
             self.InputFile=str(PointTimeseriesInput['InputFile']).strip('"')
             self.OutputFile=str(PointTimeseriesInput['OutputFile']).strip('"')
-            
+            self.f_c = float(SiteVegProps['Fc'])
+            self.f_g = float(SiteVegProps['Fg'])
+            self.wc = float(SiteVegProps['Wc'])   
+            self.kB_method = PointTimeseriesInput['kB']
     
     def RunTSEBLocalImage(self):
         ''' Runs TSEB for all the pixel in an image'''
@@ -808,7 +817,7 @@ class PyTSEB():
                 # Read the image mosaic and get the LST at sunrise time
                 try:
                     lst_0 = fid.GetRasterBand(2).ReadAsArray()
-                    lst_0[lst_0 == -99] = np.nan
+                    lst_0[lst_0 <= -99] = np.nan
                     if np.nanmean(lst_0) < 100:
                         lst_0[:] = lst_0 + 273.16
                     inDataArray['T_R0']=fid.GetRasterBand(2).ReadAsArray()
@@ -928,7 +937,13 @@ class PyTSEB():
         Lsky = inDataArray['Lsky'] 
         
         # Convert float inputs to numpy arrays
-        self.CalcG[1] = np.ones(lai.shape)*self.CalcG[1]
+        if self.CalcG[0] == 0:
+            self.CalcG[1] = np.ones(lai.shape)*self.CalcG[1]
+        if self.CalcG[0] == 1:
+            self.CalcG[1] = np.ones(lai.shape)*self.CalcG[1]
+        if self.CalcG[0] == 2:
+            for v in range(len(self.CalcG[1])):
+                self.CalcG[1][v] = np.ones(lai.shape)*self.CalcG[1][v]
         u = np.ones(lai.shape)*self.u
         ea = np.ones(lai.shape)*self.ea
         
@@ -1258,6 +1273,11 @@ class PyTSEB():
                 if field not in self.inputNames:
                     print('ERROR: ' +field +' not found in file '+ self.InputFile)
                     return success
+        elif self.TSEB_MODEL=='OSEB':
+            for field in MandatoryFields_TSEB_PT:
+                if field not in self.inputNames:
+                    print('ERROR: ' +field +' not found in file '+ self.InputFile)
+                    return success
         elif self.TSEB_MODEL=='DTD':
             for field in MandatoryFields_DTD:
                 if field not in self.inputNames:
@@ -1359,7 +1379,10 @@ class PyTSEB():
                 self.CalcG[1] = inData['G']
         elif self.CalcG[0] == 2: # Santanello and Friedls G
             self.CalcG[1][0] = inData['Time'] # Set the time in the CalcG flag to compute the Santanello and Friedl G
-        
+            self.CalcG[1][1] = np.ones(len(inData['Time']))*self.CalcG[1][1]
+            self.CalcG[1][2] = np.ones(len(inData['Time']))*self.CalcG[1][2]
+            self.CalcG[1][3] = np.ones(len(inData['Time']))*self.CalcG[1][3]
+
         #======================================
         # Run the chosen model
         
@@ -1398,47 +1421,93 @@ class PyTSEB():
                 emis = self.emisVeg
             else:
                 emis = self.emisGrd
+            # Get kB value
+            import src.resistances as res_kB
+            if isinstance(self.kB_method, float):
+                kB_value = self.kB_method
+            elif isinstance(self.kB_method, int):
+                kB_value = self.kB_method
+            elif isinstance(self.kB_method, str):
+                if self.kB_method == 'Lhomme':
+                    kB_value = res_kB.Calc_kB_Lhomme(inData['LAI'])
+                elif self.kB_method == 'Kustas':
+                    kB_value = res_kB.Calc_kB_Kustas(inData['Trad'],
+                                                     inData['Ta'],inData['u'])
+            else:
+                print('Could not calculate kB for OSEB model.')
             albedo=fvis*self.spectraGrd['rsoilvis']+fnir* self.spectraGrd['rsoilnir']
             [flag,S_n, L_n, LE,H,G,R_a,u_friction, L,n_iterations] = TSEB.OSEB(inData['Trad'],
                 inData['Ta'],inData['u'],inData['ea'],inData['p'],
                 inData['Sdn_dir'] + inData['Sdn_dif'],inData['Lsky'],emis,albedo,inData['z_0M'],inData['d_0'],
-                self.zu,self.zt,self.CalcG) #, T0_K = [], kB = 0.0)
+                self.zu,self.zt,self.CalcG, kB=kB_value )#, T0_K = [], kB = 0.0)
             
-        # Calculate the bulk fluxes
-        LE=LE_C+LE_S
-        H=H_C+H_S
-        Rn=S_nC+S_nS+L_nC+L_nS
         
-        
-        #======================================
-        # Save output file        
-        
-        # Output Headers
-        outputTxtFieldNames = ['Year', 'DOY', 'Time','LAI','f_g', 'skyl', 'VZA', 
-                               'SZA', 'SAA','L_sky','Rn_model','Rn_sw_veg', 'Rn_sw_soil', 
-                               'Rn_lw_veg', 'Rn_lw_soil', 'Tc', 'Ts', 'Tac', 
-                               'LE_model', 'H_model', 'LE_c', 'H_c', 'LE_s', 'H_s', 
-                               'flag', 'zo', 'd', 'G_model', 'R_s', 'R_x', 'R_a', 
-                               'u_friction', 'L',  'n_iterations']
-        
-        # Create the ouput directory if it doesn't exist
-        outdir=dirname(self.OutputFile)
-        if not exists(outdir):
-            mkdir(outdir)
-        
-        # Open output file and write the data
-        with open (self.OutputFile, 'w') as fp:
-            writer = csv.writer(fp, delimiter='\t')
-            writer.writerow(outputTxtFieldNames)
-            for row in range(LE.size):
-                outData = [ inData['Year'][row], inData['DOY'][row], inData['Time'][row], inData['LAI'][row], 
-                            inData['fg'][row], inData['Skyl'][row], inData['VZA'][row], inData['SZA'][row], 
-                            inData['SAA'][row], inData['Lsky'][row], Rn[row], S_nC[row], S_nS[row], L_nC[row], 
-                            L_nS[row], Tc[row], Ts[row], T_AC[row], LE[row], H[row], LE_C[row], H_C[row], 
-                            LE_S[row], H_S[row], flag[row], inData['z_0M'][row], inData['d_0'][row], 
-                            G[row], R_s[row], R_x[row], R_a[row], u_friction[row], L[row], n_iterations]
-                writer.writerow(outData)
-        print('Done')
+        if self.TSEB_MODEL=='OSEB':
+            Rn=S_n + L_n
+            
+            #======================================
+            # Save output file        
+            
+            # Output Headers
+            outputTxtFieldNames = ['Year', 'DOY', 'Time','LAI','f_g', 'skyl', 'VZA', 
+                                   'SZA', 'SAA','L_sky','Rn_model', 
+                                   'LE_model', 'H_model',  
+                                   'flag', 'zo', 'd', 'G_model', 'R_a', 
+                                   'u_friction', 'L',  'n_iterations']
+            
+            # Create the ouput directory if it doesn't exist
+            outdir=dirname(self.OutputFile)
+            if not exists(outdir):
+                mkdir(outdir)
+            
+            # Open output file and write the data
+            with open (self.OutputFile, 'w') as fp:
+                writer = csv.writer(fp, delimiter='\t')
+                writer.writerow(outputTxtFieldNames)
+                for row in range(LE.size):
+                    outData = [ inData['Year'][row], inData['DOY'][row], inData['Time'][row], inData['LAI'][row], 
+                                inData['fg'][row], inData['Skyl'][row], inData['VZA'][row], inData['SZA'][row], 
+                                inData['SAA'][row], inData['Lsky'][row], Rn[row],LE[row], H[row], 
+                                flag[row], inData['z_0M'][row], inData['d_0'][row], 
+                                G[row], R_a[row], u_friction[row], L[row], n_iterations]
+                    writer.writerow(outData)
+            print('Done')    
+        else:
+            # Calculate the bulk fluxes
+            LE=LE_C+LE_S
+            H=H_C+H_S
+            Rn=S_nC+S_nS+L_nC+L_nS
+            
+            
+            #======================================
+            # Save output file        
+            
+            # Output Headers
+            outputTxtFieldNames = ['Year', 'DOY', 'Time','LAI','f_g', 'skyl', 'VZA', 
+                                   'SZA', 'SAA','L_sky','Rn_model','Rn_sw_veg', 'Rn_sw_soil', 
+                                   'Rn_lw_veg', 'Rn_lw_soil', 'Tc', 'Ts', 'Tac', 
+                                   'LE_model', 'H_model', 'LE_c', 'H_c', 'LE_s', 'H_s', 
+                                   'flag', 'zo', 'd', 'G_model', 'R_s', 'R_x', 'R_a', 
+                                   'u_friction', 'L',  'n_iterations']
+            
+            # Create the ouput directory if it doesn't exist
+            outdir=dirname(self.OutputFile)
+            if not exists(outdir):
+                mkdir(outdir)
+            
+            # Open output file and write the data
+            with open (self.OutputFile, 'w') as fp:
+                writer = csv.writer(fp, delimiter='\t')
+                writer.writerow(outputTxtFieldNames)
+                for row in range(LE.size):
+                    outData = [ inData['Year'][row], inData['DOY'][row], inData['Time'][row], inData['LAI'][row], 
+                                inData['fg'][row], inData['Skyl'][row], inData['VZA'][row], inData['SZA'][row], 
+                                inData['SAA'][row], inData['Lsky'][row], Rn[row], S_nC[row], S_nS[row], L_nC[row], 
+                                L_nS[row], Tc[row], Ts[row], T_AC[row], LE[row], H[row], LE_C[row], H_C[row], 
+                                LE_S[row], H_S[row], flag[row], inData['z_0M'][row], inData['d_0'][row], 
+                                G[row], R_s[row], R_x[row], R_a[row], u_friction[row], L[row], n_iterations]
+                    writer.writerow(outData)
+            print('Done')
 
 
     # This function has been replaced by RunTSEBPointSeries but is kept here in case it is needed in the future 

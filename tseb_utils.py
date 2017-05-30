@@ -5,13 +5,8 @@ Utility functions for TSEB
 import gdal
 import numpy as np
 import pandas as pd
-import sys
 
-# Import met_utils
-sys.path.append(r'D:\Daten\Evaporation\PYTHON\universal_Functions')
-import met_utils
-
-def createLST0(Imagery, metData, flightime):
+def create_lst0(Imagery, metData, flightime):
     ''' 
     Needed for TSEB in DTD mode in case that no Trad_0 image is available.
     This function creates a array of the size of LST with the surface temperature
@@ -20,7 +15,7 @@ def createLST0(Imagery, metData, flightime):
     # Read LST information during day (Trad_1)
     in_im = Imagery['inputLST']
     fid=gdal.Open(in_im,gdal.GA_ReadOnly)
-    LST = fid.GetRasterBand(1).ReadAsArray()
+    lst = fid.GetRasterBand(1).ReadAsArray()
     prj = fid.GetProjection()
     geo = fid.GetGeoTransform()
     
@@ -28,15 +23,15 @@ def createLST0(Imagery, metData, flightime):
     time = metData.loc[metData.index == flightime, :].index
     time_0 = pd.to_datetime(time.date[0]) + pd.Timedelta(5.5, unit = 'h')
     surf_temp = metData.loc[time_0, 'IR_TempC_Avg'] 
-    LST_0 = np.zeros(LST.shape) + surf_temp
-    LST_0[LST == -99] = -99
+    lst_0 = np.zeros(lst.shape) + surf_temp
+    lst_0[lst == -99] = -99
     
     # Write output
-    rows,cols = np.shape(LST)
+    rows,cols = np.shape(lst)
     driver = gdal.GetDriverByName('GTiff')
-    fields = [LST, LST_0]
+    fields = [lst, lst_0]
     nbands = len(fields)
-    outfile = in_im.replace('LST.tif', 'LST_DTD.tif')
+    outfile = in_im.replace('lst.tif', 'lst_DTD.tif')
     ds = driver.Create(outfile, cols, rows, nbands, gdal.GDT_Float32)
     ds.SetGeoTransform(geo)
     ds.SetProjection(prj)
@@ -49,39 +44,5 @@ def createLST0(Imagery, metData, flightime):
     del ds
     
 
-def parseMet(metData, flightime, config_file):
-    '''
-    Parse meteorological data during flightime into the config_file.
-    '''
-    time = metData.loc[metData.index == flightime, :].index
-    DOY = int(metData.loc[metData.index == flightime, :].index.dayofyear)          
-    decTime = time.hour + float(time.minute)/60 + float(time.second)/3600
-    Ta_1 = metData.loc[flightime, 'airtemp_Avg'] + 273.15
-    Sdn = metData.loc[flightime, 'SR_In_Avg'] 
-    Ldn = metData.loc[flightime, 'IR_InCo_Avg'] 
-    u = metData.loc[flightime, 'u'] 
-    p = metData.loc[flightime, 'airpressure_Avg'] 
-    ea = met_utils.get_ea_fromRH(metData.loc[flightime, 'relhumidity_Avg'], Ta_1 - 273.15)
-    
-    if config_file['ModelMode'] == 'DTD':
-        time_0 = pd.to_datetime(time.date[0]) + pd.Timedelta(5.5, unit = 'h')
-        Ta_0 = metData.loc[time_0, 'airtemp_Avg'] + 273.15
-        config_file['Ta_0'] = Ta_0
-              
-    config_file['Meteo']['DOY'] = DOY
-    config_file['Meteo']['Time'] = decTime[0]
-    config_file['Meteo']['Ta_1'] = Ta_1
-    config_file['Meteo']['u'] = u
-    config_file['Meteo']['p'] = p
-    config_file['Meteo']['ea'] = ea
-    config_file['Meteo']['Sdn'] = Sdn
-    config_file['Meteo']['Ldn'] = Ldn
-    return config_file
 
-def parseImagery(Imagery, config_file):
-    config_file['Imagery'] = Imagery
-    return config_file
 
-def parseFlightime(flightime, config_file):
-    config_file['Flightime'] = flightime
-    return config_file

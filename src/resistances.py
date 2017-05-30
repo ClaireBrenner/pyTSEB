@@ -349,7 +349,7 @@ def Calc_kB_Kustas(Tr_K, Ta_K, u):
     ----------
     Tr_K : float
         Radiometric composite temperature (Kelvin).
-        Ta_K : float 
+    Ta_K : float 
         Air temperature (Kelvin).
     u : float 
         Wind speed above the canopy (m s-1).
