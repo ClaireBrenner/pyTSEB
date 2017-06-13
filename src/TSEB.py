@@ -69,6 +69,7 @@ import src.MOsimilarity as MO
 import src.netRadiation as rad
 import src.ClumpingIndex as CI
 import numpy as np
+np.seterr(divide='ignore', invalid='ignore')
 #==============================================================================
 # List of constants used in TSEB model and sub-routines   
 #==============================================================================
@@ -79,7 +80,7 @@ u_thres=0.00001
 # mimimun allowed friction velocity    
 u_friction_min=0.01;
 #Maximum number of interations
-ITERATIONS=100
+ITERATIONS=10
 # kB coefficient
 kB=0.0
 
@@ -529,9 +530,13 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
         z_0M[i]=z0_soil
         d_0[i]=5*z_0M[i]
         spectraGrdOSEB=fvis*spectraGrd['rsoilvis']+fnir* spectraGrd['rsoilnir']
+        if CalcG[0]==2:
+            G_temp = CalcG[1][:, i]
+        else:
+            G_temp = CalcG[1][i]
         [flag[i], S_nS[i], L_nS[i], LE_S[i], H_S[i], G[i], R_a[i], u_friction[i], L[i], n_iterations[i]]=OSEB(Tr_K[i],
             Ta_K[i], u[i], ea[i], p[i], Sdn_dir[i]+Sdn_dif[i], Lsky[i], emisGrd, spectraGrdOSEB[i], 
-            z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], CalcG[1][i]])
+            z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], G_temp])
         Ts[i] = Tr_K[i]
             
     # Calculate the general parameters
