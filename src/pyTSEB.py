@@ -801,6 +801,8 @@ class PyTSEB():
                 fid=gdal.Open(self.input_LST,gdal.GA_ReadOnly)
                 lst=fid.GetRasterBand(1).ReadAsArray()
                 lst[lst <= -99] = np.nan
+                lst[lst == 0] = np.nan
+
                 if np.nanmean(lst) < 100:
                     lst[:] = lst + 273.16
                     
@@ -1022,9 +1024,9 @@ class PyTSEB():
             H=H_C+H_S
             Rn=S_nC+S_nS+L_nC+L_nS
             # mask outputs
-            LE[~mask] = -99
-            H[~mask] = -99
-            G[~mask] = -99
+            LE[~mask] = np.nan
+            H[~mask] = np.nan
+            G[~mask] = np.nan
             # Write the data in the output dictionary
             outDataArray['R_A1']=R_a
             outDataArray['R_X1']=R_x
@@ -1051,7 +1053,7 @@ class PyTSEB():
             outDataArray['F']=lai
             
             # mask output
-            outDataArray['R_n1'][~mask] = -99 
+            outDataArray['R_n1'][~mask] = np.nan 
             outDataArray['R_ns1'][~mask] = np.nan 
             outDataArray['R_nl1'][~mask] = np.nan 
             outDataArray['H_C1'][~mask] = np.nan

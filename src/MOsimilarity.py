@@ -287,6 +287,7 @@ def CalcU_C (u_friction, h_C, d_0, z_0M):
     '''
 
     import numpy as np
+    np.seterr(divide='ignore', invalid='ignore')
     # The original equation below has been refolmulated to use u_friction:
     # u_C = u * log((h_C - d_0) / z_0M)/(log ((z_u  - d_0) / z_0M)- Psi_M)
     u_C = np.log((h_C - d_0) / z_0M) * u_friction/k
