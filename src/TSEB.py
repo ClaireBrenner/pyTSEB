@@ -69,6 +69,8 @@ import src.MOsimilarity as MO
 import src.netRadiation as rad
 import src.ClumpingIndex as CI
 import numpy as np
+import pickle
+
 np.seterr(divide='ignore', invalid='ignore')
 #==============================================================================
 # List of constants used in TSEB model and sub-routines   
@@ -373,7 +375,7 @@ def TSEB_2T(Tc,Ts,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
 def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             LAI,hc,emisVeg,emisGrd,spectraVeg,spectraGrd,z_0M,d_0,zu,zt,
             leaf_width=0.1,z0_soil=0.01,alpha_PT=1.26,f_c=1.0,f_g=1.0,wc=1.0,
-            CalcG=[1,0.35],mask=None):
+            CalcG=[1,0.35],mask=None,res_dependence=False):
     '''Priestley-Taylor TSEB
 
     Calculates the Priestley Taylor TSEB fluxes using a single observation of
@@ -536,7 +538,8 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             G_temp = CalcG[1][i]
         [flag[i], S_nS[i], L_nS[i], LE_S[i], H_S[i], G[i], R_a[i], u_friction[i], L[i], n_iterations[i]]=OSEB(Tr_K[i],
             Ta_K[i], u[i], ea[i], p[i], Sdn_dir[i]+Sdn_dif[i], Lsky[i], emisGrd, spectraGrdOSEB[i], 
-            z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], G_temp])
+            z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], G_temp], 
+            res_dependence=res_dependence, i=i)
         Ts[i] = Tr_K[i]
             
     # Calculate the general parameters
@@ -573,6 +576,8 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     L_diff = np.ones(Tr_K.shape)*float('inf')
     L_diff[LAI==0] = 0
     max_iterations=ITERATIONS
+    if res_dependence['flag'] and (res_dependence['level'] == 'dependent'): 
+            max_iterations = 1
 
     # First assume that canopy temperature equals the minumum of Air or radiometric T
     Tc[i] = np.minimum(Tr_K[i], Ta_K[i])
@@ -603,23 +608,34 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             elif alpha_PT_rec < alpha_PT: 
                 flag[i] = 3
             
-            # Calculate the aerodynamic resistance
-            R_a[i] = res.CalcR_A( zt, u_friction[i], L[i], d_0[i], z_0H[i])
-            # Calculate wind speed at the soil surface and in the canopy
-            U_C = MO.CalcU_C (u_friction, hc, d_0, z_0M)
-            u_S = MO.CalcU_Goudriaan (U_C, hc, F*omega0, leaf_width, z0_soil) # Clumped vegetation enhanced wind speed for the soil surface 
-            u_d_zm = MO.CalcU_Goudriaan (U_C, hc, F, leaf_width,d_0+z_0M) # Wind speed is highly attenuated within the canopy volume
-            # Calculate soil and canopy resistances            
-            R_x[i] = res.CalcR_X_Norman(LAI[i], leaf_width, u_d_zm[i]) # Vegetation in series with soil, i.e. well mixed, so we use the landscape LAI
-            R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Ta_K[i])
-            R_s=np.maximum( 1e-3,R_s)
-            R_x=np.maximum( 1e-3,R_x)
-            R_a=np.maximum( 1e-3,R_a)
-
-            # Calculate net longwave radiation with current values of Tc and Ts
-            L_nC[i], L_nS[i] = rad.CalcLnKustas (Tc[i], Ts[i], Lsky[i], LAI[i], emisVeg, emisGrd)
+            if res_dependence['flag'] and (res_dependence['level'] == 'dependent'): 
+                    with open(res_dependence['filepath'], 'rb') as handle:
+                        independent_vars = pickle.load(handle)
+                    R_a = independent_vars['R_a']
+                    R_s = independent_vars['R_s']
+                    R_x = independent_vars['R_x']
+                    L_nS = independent_vars['L_nS']
+                    L_nC = independent_vars['L_nC']
+                    
+            
+            else:
+                # Calculate the aerodynamic resistance
+                R_a[i] = res.CalcR_A( zt, u_friction[i], L[i], d_0[i], z_0H[i])
+                # Calculate wind speed at the soil surface and in the canopy
+                U_C = MO.CalcU_C (u_friction, hc, d_0, z_0M)
+                u_S = MO.CalcU_Goudriaan (U_C, hc, F*omega0, leaf_width, z0_soil) # Clumped vegetation enhanced wind speed for the soil surface 
+                u_d_zm = MO.CalcU_Goudriaan (U_C, hc, F, leaf_width,d_0+z_0M) # Wind speed is highly attenuated within the canopy volume
+                # Calculate soil and canopy resistances            
+                R_x[i] = res.CalcR_X_Norman(LAI[i], leaf_width, u_d_zm[i]) # Vegetation in series with soil, i.e. well mixed, so we use the landscape LAI
+                R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Ta_K[i])
+                R_s=np.maximum( 1e-3,R_s)
+                R_x=np.maximum( 1e-3,R_x)
+                R_a=np.maximum( 1e-3,R_a)
+    
+                # Calculate net longwave radiation with current values of Tc and Ts
+                L_nC[i], L_nS[i] = rad.CalcLnKustas (Tc[i], Ts[i], Lsky[i], LAI[i], emisVeg, emisGrd)
             delta_R_n = L_nC + S_nC
-            R_n_soil=S_nS+L_nS
+            R_n_soil=S_nS + L_nS
             
             # Calculate the canopy and soil temperatures using the Priestley Taylor appoach
             H_C[i] = CalcH_C_PT(delta_R_n[i], f_g[i], Ta_K[i], p[i], c_p[i], alpha_PT_rec)
@@ -632,9 +648,13 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             LE_S[flag_t==255] = 0
             i = np.logical_and.reduce((LE_S < 0, L_diff >= L_thres, flag != 255, LAI > 0))
             
-            # Recalculate soil resistance using new soil temperature
-            R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Ta_K[i])
-            R_s = np.maximum( 1e-3,R_s)
+            if res_dependence['flag'] and (res_dependence['level'] == 'dependent'): 
+                    R_s = independent_vars['R_s']
+            
+            else:
+                # Recalculate soil resistance using new soil temperature
+                R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Ta_K[i])
+                R_s = np.maximum( 1e-3,R_s)
             
             # Get air temperature at canopy interface
             T_AC[i] = (( Ta_K[i]/R_a[i] + Ts[i]/R_s[i] + Tc[i]/R_x[i] )
@@ -683,7 +703,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
         L_diff[np.isnan(L_diff)] = float('inf')       
         L_old[:] = L
         L_old[L_old==0] = 1e-36                 
-        
+           
     return flag, Ts, Tc, T_AC,S_nS, S_nC, L_nS,L_nC, LE_C,H_C,LE_S,H_S,G,R_s,R_x,R_a,u_friction, L,n_iterations
     
 def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
@@ -981,7 +1001,7 @@ def  DTD(Tr_K_0,Tr_K_1,vza,Ta_K_0,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif, fvis,fnir,sza,
                 R_s,R_x,R_a,u_friction, L,Ri,n_iterations]        
 
 def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
-          T0_K=[],kB=0.0,mask=None):
+          T0_K=[],kB=0.0,mask=None, res_dependence=False, i=[]):
     '''Calulates bulk fluxes from a One Source Energy Balance model
 
     Parameters
@@ -1071,6 +1091,8 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
     rho= met.CalcRho(p, ea, Ta_K)  #Air density
     c_p = met.CalcC_p(p, ea)  #Heat capacity of air
     max_iterations=ITERATIONS
+    if res_dependence['flag'] and (res_dependence['level'] == 'dependent'): 
+            max_iterations = 1
     # With differential temperatures use Richardson number to approximate L,
     # same as is done in DTD    
     if differentialT:
@@ -1081,9 +1103,16 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
     u_friction = np.maximum(u_friction_min, u_friction)
     z_0H=res.CalcZ_0H(z_0M,kB=kB)
     
+   
     # Calculate Net radiation
     S_n,L_n=rad.CalcRnOSEB(Sdn, Lsky, Tr_K, emis, albedo)
-    R_n=S_n+L_n
+    if res_dependence['flag'] and (res_dependence['level'] == 'dependent'):
+        with open(res_dependence['filepath'], 'rb') as handle:
+            independent_vars = pickle.load(handle)
+            R_a = independent_vars['R_a']
+            L_n = independent_vars['L_nC'] + independent_vars['L_nS']
+            L_n = L_n[i]
+    R_n=S_n + L_n
     
     #Compute Soil Heat Flux
     if CalcG[0]==0:
@@ -1100,12 +1129,16 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
         flag = np.zeros(Tr_K.shape)
         G=G_calc.copy()
         
-        # Calculate the aerodynamic resistances
-        if differentialT:
-            R_a=res.CalcR_A(zu, u_friction, Ri, d_0, z_0H, useRi=True)
+        if res_dependence['flag'] and (res_dependence['level'] == 'dependent'):
+            R_a = independent_vars['R_a']
+            R_a = R_a[i]
         else:
-            R_a=res.CalcR_A(zt, u_friction, L, d_0, z_0H)
-        R_a = np.maximum( 1e-3,R_a)
+            # Calculate the aerodynamic resistances
+            if differentialT:
+                R_a=res.CalcR_A(zu, u_friction, Ri, d_0, z_0H, useRi=True)
+            else:
+                R_a=res.CalcR_A(zt, u_friction, L, d_0, z_0H)
+            R_a = np.maximum( 1e-3,R_a)
         
         # Calculate bulk fluxes assuming that since there is no vegetation,
         # Tr is the heat source

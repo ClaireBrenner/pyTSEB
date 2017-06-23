@@ -752,7 +752,6 @@ class PyTSEB():
             self.input_mask=str(AncProps['useMask']).strip('"')
             
             MeteoData = config_file['Meteo']
-            
             self.DOY,self.Time,self.Ta_1,self.Sdn,self.u,self.ea,self.Ldn,self.p=(float(MeteoData['DOY']),float(MeteoData['Time']),
                 float(MeteoData['Ta_1']),float(MeteoData['Sdn']),float(MeteoData['u']),float(MeteoData['ea']),
                 str(MeteoData['Ldn']).strip('"'),str(MeteoData['p']).strip('"'))
@@ -776,6 +775,9 @@ class PyTSEB():
                     self.TSEB_MODEL = 'TSEB_PT'  
                 if int(SHFinfo['CalcG'])==1:
                     self.CalcG=[1,float(0.15)]
+                    
+            self.resolution_dependence = config_file['resolution_dep']
+            
         else:
             PointTimeseriesInput = config_file['PointTimeseriesInput']
             self.InputFile=str(PointTimeseriesInput['InputFile']).strip('"')
@@ -914,13 +916,17 @@ class PyTSEB():
         import src.TSEB as TSEB
         import src.resistances as res
         import numpy as np
-
+        import os
+        import pickle
+        
         print("Processing...")        
         
         # Get the LAI
         lai=inDataArray['LAI']
         fc=inDataArray['f_C']
         f_g=inDataArray['f_g']
+        # Hack to avoid 0 f_g:
+#        f_g[f_g < 0.1] = 0.1
         noVegPixels = np.logical_or.reduce((fc<=0.01, lai<=0, np.isnan(lai)))
         lai[noVegPixels] = 0
         fc[noVegPixels] = 0
@@ -968,7 +974,7 @@ class PyTSEB():
                  n_iterations]=TSEB.TSEB_PT(Tr_K_1,vza,Ta_K_1,u,ea,p,Sdn_dir,Sdn_dif,fvis,fnir,sza,Lsky,lai,
                     hc,self.emisVeg,self.emisGrd,self.spectraVeg,self.spectraGrd,z_0M,d_0,self.zu,self.zt,
                     f_c=fc,f_g=f_g,wc=wc,leaf_width=self.leaf_width,z0_soil=self.z0_soil,alpha_PT=self.Max_alpha_PT,
-                    CalcG=self.CalcG,mask=mask)
+                    CalcG=self.CalcG,mask=mask,res_dependence=self.resolution_dependence)
         elif self.TSEB_MODEL=='TSEB_2T':
             Tc=inDataArray['T_C']
             Ts=inDataArray['T_S']
@@ -1019,6 +1025,24 @@ class PyTSEB():
             print("Finished!")
             
         else:
+            
+            if (self.resolution_dependence['flag'] and 
+                    (self.resolution_dependence['level'] == 'independent')): 
+
+                    independent_vars = {
+                            'L' : L,
+                            'u_friction' : u_friction,
+                            'R_a' : R_a,
+                            'R_s' : R_s,
+                            'R_x' : R_x,
+                            'R_n_soil' : S_nS + L_nS,
+                            'delta_R_n' : L_nC + S_nC,
+                            'L_nS' : L_nS,
+                            'L_nC' : L_nC
+                            }
+                    name = os.path.splitext(self.OutputFile)[0]+'_independent_vars.p'
+                    pickle.dump(independent_vars, open(name, 'wb'))
+        
             # Calculate the bulk fluxes
             LE=LE_C+LE_S
             H=H_C+H_S
