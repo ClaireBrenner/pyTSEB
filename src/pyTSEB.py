@@ -127,6 +127,7 @@ class PyTSEB():
                          'Input_Fg','Input_Hc','Input_Wc','OutputFile','Time','DOY','Ta_1',
                          'Ta_0','u','ea', 'Sdn', 'Ldn','p']
         self.input_point_vars=['InputFile']
+        self.resolution_dependence=False
         
     def PointTimeSeriesWidget(self):
         '''Creates a jupyter notebook GUI for running TSEB for a point time series dataset'''
@@ -995,7 +996,7 @@ class PyTSEB():
             albedo=fvis*self.spectraGrd['rsoilvis']+fnir* self.spectraGrd['rsoilnir']
             [flag,S_n, L_n, LE,H,G,R_a,u_friction, L,n_iterations] = TSEB.OSEB(Tr_K_1,
                 Ta_K_1,u,ea,p,Sdn_dif + Sdn_dir,Lsky,emis,albedo,z_0M,d_0,
-                self.zu,self.zt, self.CalcG) #, T0_K = [], kB = 0.0, mask = mask)
+                self.zu,self.zt, self.CalcG) #, T0_K=[], kB=0.0, mask=mask, res_dependence=self.resolution_dependence)
         
         if self.TSEB_MODEL=='OSEB':
             # Calculate the bulk fluxes
@@ -1025,7 +1026,10 @@ class PyTSEB():
             print("Finished!")
             
         else:
-            
+            # If the model runs in resolution independent mode (with flag =
+            # True), the output of the independent variables will be saved 
+            # into a pickle file so that it can be recalled for model runs
+            # in dependent mode. 
             if (self.resolution_dependence['flag'] and 
                     (self.resolution_dependence['level'] == 'independent')): 
 
@@ -1040,7 +1044,8 @@ class PyTSEB():
                             'L_nS' : L_nS,
                             'L_nC' : L_nC
                             }
-                    name = os.path.splitext(self.OutputFile)[0]+'_independent_vars.p'
+                    name = (os.path.splitext(self.OutputFile)[0] + \
+                                '_independent_vars.p')
                     pickle.dump(independent_vars, open(name, 'wb'))
         
             # Calculate the bulk fluxes
@@ -1442,6 +1447,7 @@ class PyTSEB():
                             alpha_PT=self.Max_alpha_PT, CalcG=self.CalcG)
             Ts = inData['Ts']
             Tc = inData['Tc'] 
+            
         elif self.TSEB_MODEL=='OSEB':  
             if np.nanmean(inData['LAI']) > 0: # Assumption of emissivity
                 emis = self.emisVeg
