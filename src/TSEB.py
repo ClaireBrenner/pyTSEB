@@ -527,9 +527,12 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     # Create the output variables
     [flag, Ts, Tc, T_AC,S_nS, S_nC, L_nS,L_nC, LE_C,H_C,LE_S,H_S,G,R_s,R_x,R_a,
      u_friction, L, n_iterations, F]=[np.zeros(Tr_K.shape) for i in range(20)]
-     
+    
+    #f_g[f_g == 0] = 0.01
+    
     # If there is no vegetation canopy use One Source Energy Balance model
     i = LAI==0
+    #i = np.logical_or((LAI==0), (f_g==0))
     if np.any(i):
         z_0M[i]=z0_soil
         d_0[i]=5*z_0M[i]
@@ -543,7 +546,8 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             z_0M[i], d_0[i], zu, zt, CalcG=[CalcG[0], G_temp], 
             res_dependence=res_dependence, i=i)
         Ts[i] = Tr_K[i]
-            
+    
+    
     # Calculate the general parameters
     rho= met.CalcRho(p, ea, Ta_K)  # Air density
     c_p = met.CalcC_p(p, ea)  # Heat capacity of air
