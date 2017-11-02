@@ -48,6 +48,9 @@ Wind profile functions
 * :func:`CalcA_Goudriaan` [Goudriaan1977]_ wind attenuation coefficient below the canopy.
 
 """
+from numba import njit, vectorize
+from math import log
+import numpy as np
 
 #==============================================================================
 # List of constants used in MO similarity   
@@ -140,7 +143,7 @@ def CalcPsi_H (zoL):
     Psi_H[zoL<0.0] = ((1.0-d)/n) * np.log((c + y[zoL<0.0]**n)/c)
     return Psi_H
 
-def CalcPsi_M (zoL):
+def CalcPsi_M_original(zoL):
     ''' Adiabatic correction factor for momentum transport.
     
     Parameters
@@ -181,6 +184,47 @@ def CalcPsi_M (zoL):
         3.0**0.5*b*a**0.333333*np.arctan((2.0*x[i]-1.0)/3**0.5) + Psi_0)
     return Psi_M
 
+@vectorize(['float64(float64)'], target='parallel', nopython=True)
+def CalcPsi_M(zoL):
+    ''' Adiabatic correction factor for momentum transport.
+    
+    Parameters
+    ----------
+    zoL : float
+        stability coefficient (unitless).
+    
+    Returns
+    -------
+    Psi_M : float
+        adiabatic corrector factor fof momentum transport (unitless).
+
+    References
+    ----------
+    .. [Brutsaert2005] Brutsaert, W. (2005). Hydrology: an introduction (Vol. 61, No. 8).
+        Cambridge: Cambridge University Press.
+    '''
+    pi = 3.141592653589793
+    Psi_M = 0
+
+    if not np.isnan(zoL):        
+        if zoL >= 0:
+            a = 6.1
+            b = 2.5
+            Psi_M = -a * log( zoL + (1 + zoL**b)**(1/b))
+        else:            
+            a = 0.33
+            b = 0.41
+            y = -zoL
+            x = (y / a)**0.333333
+            Psi_0 = - log(a) + 3**0.5*b*a**0.333333*pi/6
+            if y > b**-3:
+                y = b**-3
+            Psi_M = (log(a + y) - 3*b*y**0.333333 + 
+                        (b*a**0.333333)/2 * log((1+x)**2/(1-x+x**2)) +
+                        3**0.5*b*a**0.333333*np.arctan((2*x-1)/3**0.5) + Psi_0)
+    return Psi_M
+    
+            
 def CalcPsi_M_B92 (zoL):
     ''' Adiabatic correction factor for momentum transport [Brutsaert1992]_
     
