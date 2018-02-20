@@ -527,12 +527,10 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     # Create the output variables
     [flag, Ts, Tc, T_AC,S_nS, S_nC, L_nS,L_nC, LE_C,H_C,LE_S,H_S,G,R_s,R_x,R_a,
      u_friction, L, n_iterations, F]=[np.zeros(Tr_K.shape) for i in range(20)]
-    
-    #f_g[f_g == 0] = 0.01
-    
+        
     # If there is no vegetation canopy use One Source Energy Balance model
-    i = LAI==0
-    #i = np.logical_or((LAI==0), (f_g==0))
+    #i = LAI==0
+    i = np.logical_or((LAI==0), (f_g<=0.01))
     if np.any(i):
         z_0M[i]=z0_soil
         d_0[i]=5*z_0M[i]
@@ -578,9 +576,12 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     u_friction = np.maximum(u_friction_min, u_friction)
     L_old = np.ones(Tr_K.shape)
     L_old[LAI==0] = L[LAI==0]
+    L_old[f_g<=0.01] = L[f_g<=0.01]
     L_old[LAI==0] = 0
+    L_old[f_g<=0.01] = 0
     L_diff = np.ones(Tr_K.shape)*float('inf')
     L_diff[LAI==0] = 0
+    L_diff[f_g<=0.01] = 0
     max_iterations=ITERATIONS
     # If running in resolution dependent mode no iterations for stability are
     # needed so that the number of maximum iterations can be set to 1
@@ -594,18 +595,18 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
     # Outer loop for estimating stability. 
     # Stops when difference in consecutives L is below a given threshold
     for n_iterations in range(max_iterations):
-        i = np.logical_and(flag!=255, LAI>0)
+        i = np.logical_and(flag!=255, LAI>0, f_g>0.01)
         if np.all(L_diff[i] < L_thres): break
         print("Iteration "+str(n_iterations)+", maximum L diff between iterations: "+str(np.max(L_diff)))         
          
         # Inner loop to iterativelly reduce alpha_PT in case latent heat flux 
         # from the soil is negative. The initial assumption is of potential 
         # canopy transpiration.
-        flag[np.logical_and.reduce((L_diff >= L_thres, flag!=255, LAI>0))] = 0
-        LE_S[np.logical_and.reduce((L_diff >= L_thres, flag!=255, LAI>0))] = -1
+        flag[np.logical_and.reduce((L_diff >= L_thres, flag!=255, LAI>0, f_g>0.01))] = 0
+        LE_S[np.logical_and.reduce((L_diff >= L_thres, flag!=255, LAI>0, f_g>0.01))] = -1
         alpha_PT_rec = alpha_PT + 0.1         
         while np.any(LE_S < 0): 
-            i = np.logical_and.reduce((LE_S < 0, L_diff >= L_thres, flag != 255, LAI > 0))            
+            i = np.logical_and.reduce((LE_S < 0, L_diff >= L_thres, flag != 255, LAI > 0, f_g>0.01))            
             
             alpha_PT_rec -= 0.1 
             
@@ -638,6 +639,7 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
                 # Calculate soil and canopy resistances            
                 R_x[i] = res.CalcR_X_Norman(LAI[i], leaf_width, u_d_zm[i]) # Vegetation in series with soil, i.e. well mixed, so we use the landscape LAI
                 R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Ta_K[i])
+                #R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Tc[i])
                 R_s=np.maximum( 1e-3,R_s)
                 R_x=np.maximum( 1e-3,R_x)
                 R_a=np.maximum( 1e-3,R_a)
@@ -657,12 +659,13 @@ def  TSEB_PT(Tr_K,vza,Ta_K,u,ea,p,Sdn_dir, Sdn_dif, fvis,fnir,sza,Lsky,
             flag_t[i], Ts[i] = CalcT_S(Tr_K[i], Tc[i], f_theta[i])
             flag[flag_t==255] = 255
             LE_S[flag_t==255] = 0
-            i = np.logical_and.reduce((LE_S < 0, L_diff >= L_thres, flag != 255, LAI > 0))
+            i = np.logical_and.reduce((LE_S < 0, L_diff >= L_thres, flag != 255, LAI > 0, f_g>0.01))
             
             if not (res_dependence['flag'] and 
                         (res_dependence['level'] == 'dependent')): 
                 # Recalculate soil resistance using new soil temperature
                 R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Ta_K[i])
+                #R_s[i] = res.CalcR_S_Kustas(u_S[i], Ts[i]-Tc[i])
                 R_s = np.maximum( 1e-3,R_s)
             
             # Get air temperature at canopy interface
@@ -1100,7 +1103,8 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
     # Calculate the general parameters
     rho= met.CalcRho(p, ea, Ta_K)  #Air density
     c_p = met.CalcC_p(p, ea)  #Heat capacity of air
-    max_iterations=ITERATIONS
+    #max_iterations=ITERATIONS
+    max_iterations=ITERATIONS*10
     # If running in resolution dependent mode no iterations for stability are
     # needed so that the number of maximum iterations can be set to 1
     if res_dependence['flag'] and (res_dependence['level'] == 'dependent'): 
@@ -1133,7 +1137,10 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
     elif CalcG[0]==1:
         G_calc=CalcG_Ratio(R_n, CalcG[1])
     elif CalcG[0]==2:
-        G_calc=CalcG_TimeDiff(R_n, CalcG[1])
+#        G_calc=CalcG_TimeDiff(R_n, CalcG[1])
+        dummy = CalcG[1]
+        dummy[1] = dummy[1]/2.0
+        G_calc=CalcG_TimeDiff(R_n, dummy)
     
     # Loop for estimating atmospheric stability. 
     # Stops when difference in consecutive L and u_friction is below a 
@@ -1168,6 +1175,8 @@ def  OSEB(Tr_K,Ta_K,u,ea,p,Sdn,Lsky,emis,albedo,z_0M,d_0,zu,zt,CalcG=[1,0.35],
         H[LE<0] = np.minimum(H[LE<0], R_n[LE<0] - G[LE<0])
         G[LE<0] = np.maximum(G[LE<0], R_n[LE<0] - H[LE<0])
         LE[LE<0] = 0
+        # If L == 0.0 erroneously small H values occur - flag them
+        flag[L == 0.0] = 255
             
         # Now L can be recalculated and the difference between iterations derived
         L=MO.CalcL (u_friction, Ta_K, rho, c_p, H, LE)

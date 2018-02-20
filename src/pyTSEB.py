@@ -116,7 +116,7 @@ class PyTSEB():
         # Output variables saved in images
         self.fields=('H1','LE1','R_n1','G1')
         # Ancillary output variables
-        self.anc_fields=('H_C1','LE_C1','LE_partition','T_C1', 'T_S1','R_ns1','R_nl1', 'u_friction', 'L', 'R_A1', 'R_X1', 'R_S1')
+        self.anc_fields=('H_C1','LE_C1','LE_partition','T_C1', 'T_S1','R_ns1','R_nl1', 'u_friction', 'L', 'R_A1', 'R_X1', 'R_S1', 'flag')
         # File Configuration variables
         self.input_commom_vars=('TSEB_MODEL','lat','lon','altitude','stdlon',
                    'z_t','z_u','emisVeg','emisGrd','rhovis','tauvis',
@@ -926,11 +926,14 @@ class PyTSEB():
         lai=inDataArray['LAI']
         fc=inDataArray['f_C']
         f_g=inDataArray['f_g']
-        # Hack to avoid 0 f_g:
-#        f_g[f_g < 0.1] = 0.1
+
         noVegPixels = np.logical_or.reduce((fc<=0.01, lai<=0, np.isnan(lai)))
         lai[noVegPixels] = 0
         fc[noVegPixels] = 0
+        lai[~mask] = np.nan
+        fc[~mask] = np.nan
+        f_g[~mask] = np.nan
+
         wc=inDataArray['w_C']
         hc=inDataArray['h_C']
         # Calculate Roughness
@@ -1056,6 +1059,8 @@ class PyTSEB():
             LE[~mask] = np.nan
             H[~mask] = np.nan
             G[~mask] = np.nan
+            Rn[~mask] = np.nan
+
             # Write the data in the output dictionary
             outDataArray['R_A1']=R_a
             outDataArray['R_X1']=R_x
@@ -1080,6 +1085,7 @@ class PyTSEB():
             outDataArray['theta_s1']=sza
             outDataArray['albedo1']=1.0-Rn/self.Sdn
             outDataArray['F']=lai
+            outDataArray['flag'] = flag
             
             # mask output
             outDataArray['R_n1'][~mask] = np.nan 
@@ -1088,6 +1094,7 @@ class PyTSEB():
             outDataArray['H_C1'][~mask] = np.nan
             outDataArray['H_S1'][~mask] = np.nan
             outDataArray['LE_partition'][~mask] = np.nan
+            outDataArray['flag'][~mask] = np.nan
             print("Finished!")
         
     # This function has been replaced by RunTSEBImageArray, but is kept here
@@ -1249,7 +1256,7 @@ class PyTSEB():
         ds.SetProjection(prj)
         for i,field in enumerate(fields):
             band=ds.GetRasterBand(i+1)
-            band.SetNoDataValue(0)
+            band.SetNoDataValue(-99)
             band.WriteArray(output[field])
             band.FlushCache()
         ds.FlushCache()
